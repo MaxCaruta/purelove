@@ -51,163 +51,107 @@ export function ContactPage() {
         </div>
       </section>
 
-      {/* Contact Information */}
+      {/* Contact Form */}
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-              {/* Contact Form */}
-              <div>
-                <h2 className="text-3xl font-bold mb-8">Send us a Message</h2>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                        Full Name *
-                      </label>
-                      <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        required
-                        value={formData.name}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
-                        placeholder="Your full name"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address *
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        required
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
-                        placeholder="your.email@example.com"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
-                      Category
-                    </label>
-                    <select
-                      id="category"
-                      name="category"
-                      value={formData.category}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
-                    >
-                      <option value="general">General Inquiry</option>
-                      <option value="technical">Technical Support</option>
-                      <option value="billing">Billing & Subscriptions</option>
-                      <option value="safety">Safety & Security</option>
-                      <option value="feedback">Feedback & Suggestions</option>
-                      <option value="partnership">Partnership Opportunities</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
-                      Subject *
-                    </label>
-                    <input
-                      type="text"
-                      id="subject"
-                      name="subject"
-                      required
-                      value={formData.subject}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
-                      placeholder="Brief description of your inquiry"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
-                      Message *
-                    </label>
-                    <textarea
-                      id="message"
-                      name="message"
-                      required
-                      rows={6}
-                      value={formData.message}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
-                      placeholder="Please provide details about your inquiry..."
-                    />
-                  </div>
-                  
-                  <button
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-rose-500 to-pink-500 text-white py-3 px-6 rounded-lg font-semibold hover:from-rose-600 hover:to-pink-600 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Send className="h-5 w-5" />
-                    Send Message
-                  </button>
-                </form>
-              </div>
-
-              {/* Contact Information */}
-              <div>
-                <h2 className="text-3xl font-bold mb-8">Get in Touch</h2>
-                <div className="space-y-8">
-                  <div className="flex items-start gap-4">
-                    <div className="bg-rose-100 h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Mail className="h-6 w-6 text-rose-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold mb-2">Email Support</h3>
-                      <p className="text-gray-600 mb-2">Get help with any questions or issues</p>
-                      <div className="space-y-1">
-                        <p><strong>General:</strong> support@purelove.com</p>
-                        <p><strong>Safety:</strong> safety@purelove.com</p>
-                        <p><strong>Billing:</strong> billing@purelove.com</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-
-                  
-                  <div className="flex items-start gap-4">
-                    <div className="bg-green-100 h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Clock className="h-6 w-6 text-green-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold mb-2">Support Hours</h3>
-                      <p className="text-gray-600 mb-2">We're here when you need us</p>
-                      <div className="space-y-1">
-                        <p><strong>Email:</strong> 24/7 (Response within 24 hours)</p>
-                        <p><strong>Emergency:</strong> 24/7 Safety Hotline</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-4">
-                    <div className="bg-purple-100 h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0">
-                      <MapPin className="h-6 w-6 text-purple-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold mb-2">Office Address</h3>
-                      <p className="text-gray-600 mb-2">Visit our headquarters</p>
-                      <div className="space-y-1">
-                        <p>PureLove International</p>
-                        <p>123 Love Street, Suite 456</p>
-                        <p>Romance City, RC 12345</p>
-                        <p>United States</p>
-                      </div>
-                    </div>
-                  </div>
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold">Send us a Message</h2>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    required
+                    value={formData.name}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                    placeholder="Your full name"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    required
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                    placeholder="your.email@example.com"
+                  />
                 </div>
               </div>
-            </div>
+              
+              <div>
+                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                  Category
+                </label>
+                <select
+                  id="category"
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                >
+                  <option value="general">General Inquiry</option>
+                  <option value="technical">Technical Support</option>
+                  <option value="billing">Billing & Subscriptions</option>
+                  <option value="safety">Safety & Security</option>
+                  <option value="feedback">Feedback & Suggestions</option>
+                  <option value="partnership">Partnership Opportunities</option>
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
+                  Subject *
+                </label>
+                <input
+                  type="text"
+                  id="subject"
+                  name="subject"
+                  required
+                  value={formData.subject}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                  placeholder="Brief description of your inquiry"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
+                  Message *
+                </label>
+                <textarea
+                  id="message"
+                  name="message"
+                  required
+                  rows={6}
+                  value={formData.message}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                  placeholder="Please provide details about your inquiry..."
+                />
+              </div>
+              
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-rose-500 to-pink-500 text-white py-3 px-6 rounded-lg font-semibold hover:from-rose-600 hover:to-pink-600 transition-colors flex items-center justify-center gap-2"
+              >
+                <Send className="h-5 w-5" />
+                Send Message
+              </button>
+            </form>
           </div>
         </div>
       </section>

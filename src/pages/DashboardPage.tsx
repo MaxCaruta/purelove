@@ -41,7 +41,7 @@ import { generateReceipt, createReceiptData, ReceiptTemplate } from '../lib/rece
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { StorageDebug } from '../components/StorageDebug';
+
 import { Navbar } from '../components/Navbar';
 import toast from 'react-hot-toast';
 
@@ -856,8 +856,6 @@ export default function DashboardPage() {
 
         {activeTab === 'settings' && (
           <div className="space-y-6">
-            {/* Storage Debug Component */}
-            <StorageDebug />
             
             <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3 sm:gap-0">

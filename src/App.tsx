@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { HomePage } from './pages/HomePage';
 import { BrowsePage } from './pages/BrowsePage';
@@ -37,6 +37,7 @@ import { AntiScamPage } from './pages/AntiScamPage';
 import AdminPage from './pages/AdminPage';
 import DatabaseDebugPage from './pages/DatabaseDebugPage';
 import { NotificationTestPage } from './pages/NotificationTestPage';
+import { NotFoundPage } from './pages/404Page';
 
 // Simple Cancel Page Component
 const CancelPage = () => {
@@ -181,6 +182,7 @@ const App = () => {
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/debug" element={<DatabaseDebugPage />} />
               <Route path="/notifications-test" element={<NotificationTestPage />} />
+              <Route path="*" element={<NotFoundPage />} />
         </Routes>
             
             {/* Global Chat Window */}
