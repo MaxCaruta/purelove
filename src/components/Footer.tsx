@@ -15,14 +15,11 @@ export function Footer() {
               Connecting Western men with Eastern European and Central Asian women for meaningful relationships.
             </p>
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-gray-600">
-                <MapPin className="h-4 w-4" />
-                <span>123 Love Street, Romance City</span>
-              </div>
+{/*               
               <div className="flex items-center gap-2 text-gray-600">
                 <Mail className="h-4 w-4" />
                 <span>support@purelove.com</span>
-              </div>
+              </div> */}
             </div>
           </div>
 

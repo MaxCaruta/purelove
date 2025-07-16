@@ -95,7 +95,7 @@ export function HomePage() {
           hasCameraOn: profile.has_camera_on,
           birthdaySoon: profile.birthday_soon,
           newProfile: profile.new_profile,
-          top1000: profile.top1000
+          top1000: profile.top_1000
         }));
         
         setProfiles(transformedData);

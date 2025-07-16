@@ -381,6 +381,7 @@ export function BrowsePage() {
   const [filterKey, setFilterKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   // Fetch real model profiles from Supabase
   useEffect(() => {
@@ -432,7 +433,7 @@ export function BrowsePage() {
           hasCameraOn: profile.has_camera_on,
           birthdaySoon: profile.birthday_soon,
           newProfile: profile.new_profile,
-          top1000: profile.top1000
+          top1000: profile.top_1000
         }));
 
         setProfiles(transformedData);
@@ -468,120 +469,196 @@ export function BrowsePage() {
 
   // Function to apply filters
   const handleFiltersChange = useCallback((filters: Record<string, any>) => {
+    console.log('🔍 [BROWSE] Filter change triggered with:', filters);
+    
+    // Skip initial filter application
+    if (!hasInitialized) {
+      console.log('🔍 [BROWSE] Skipping initial filter application');
+      setHasInitialized(true);
+      setSearchFilters(filters);
+      return;
+    }
+    
     setSearchFilters(filters);
     setCurrentPage(1); // Reset to first page when filters change
+    
+    // Check if any filters are actually set (not default values)
+    const hasActiveFilters = (
+      (filters.ageMin !== 18 || filters.ageMax !== 99) ||
+      (filters.country && filters.country.trim() !== '') ||
+      (filters.city && filters.city.trim() !== '') ||
+      (filters.eyeColor && filters.eyeColor.trim() !== '') ||
+      (filters.hairColor && filters.hairColor.trim() !== '') ||
+      (filters.appearanceType && filters.appearanceType.trim() !== '') ||
+      (filters.alcohol && filters.alcohol.trim() !== '') ||
+      (filters.smoking && filters.smoking.trim() !== '') ||
+      (filters.children && filters.children.trim() !== '') ||
+      (filters.religion && filters.religion.trim() !== '') ||
+      (filters.zodiacSign && filters.zodiacSign.trim() !== '') ||
+      (filters.englishLevel && filters.englishLevel.trim() !== '') ||
+      (filters.interests && filters.interests.length > 0) ||
+      (filters.languages && filters.languages.length > 0) ||
+      filters.hasIntroVideo === true ||
+      filters.isOnline === true ||
+      filters.hasVideo === true ||
+      filters.hasCameraOn === true ||
+      filters.birthdaySoon === true ||
+      filters.newProfile === true ||
+      filters.top1000 === true ||
+      filters.verified === true
+    );
+    
+    console.log('🔍 [BROWSE] Has active filters:', hasActiveFilters);
+    console.log('🔍 [BROWSE] Total profiles before filtering:', profiles.length);
+    
+    // If no active filters, show all profiles
+    if (!hasActiveFilters) {
+      console.log('🔍 [BROWSE] No active filters, showing all profiles');
+      setFilteredProfiles([...profiles]);
+      return;
+    }
     
     // Apply filters
     let filtered = [...profiles];
     
-    // Age filter
+    // Age filter - only apply if it's different from default
     if (filters.ageMin !== 18 || filters.ageMax !== 99) {
       filtered = filtered.filter(profile => {
+        if (!profile.birthDate) return true; // Skip profiles without birth date
         const age = new Date().getFullYear() - new Date(profile.birthDate).getFullYear();
         return age >= filters.ageMin && age <= filters.ageMax;
       });
+      console.log('🔍 [BROWSE] After age filter:', filtered.length);
     }
     
-    // Location filters
-    if (filters.country) {
-      filtered = filtered.filter(profile => profile.country.toLowerCase() === filters.country.toLowerCase());
+    // Location filters - only apply if they have values
+    if (filters.country && filters.country.trim() !== '') {
+      filtered = filtered.filter(profile => 
+        profile.country && profile.country.toLowerCase() === filters.country.toLowerCase()
+      );
+      console.log('🔍 [BROWSE] After country filter:', filtered.length);
     }
     
-    if (filters.city) {
-      filtered = filtered.filter(profile => profile.city.toLowerCase().includes(filters.city.toLowerCase()));
+    if (filters.city && filters.city.trim() !== '') {
+      filtered = filtered.filter(profile => 
+        profile.city && profile.city.toLowerCase().includes(filters.city.toLowerCase())
+      );
+      console.log('🔍 [BROWSE] After city filter:', filtered.length);
     }
     
-    // Appearance filters
-    if (filters.eyeColor) {
+    // Appearance filters - only apply if they have values
+    if (filters.eyeColor && filters.eyeColor.trim() !== '') {
       filtered = filtered.filter(profile => profile.eyeColor === filters.eyeColor);
+      console.log('🔍 [BROWSE] After eye color filter:', filtered.length);
     }
     
-    if (filters.hairColor) {
+    if (filters.hairColor && filters.hairColor.trim() !== '') {
       filtered = filtered.filter(profile => profile.hairColor === filters.hairColor);
+      console.log('🔍 [BROWSE] After hair color filter:', filtered.length);
     }
     
-    if (filters.appearanceType) {
+    if (filters.appearanceType && filters.appearanceType.trim() !== '') {
       filtered = filtered.filter(profile => profile.appearanceType === filters.appearanceType);
+      console.log('🔍 [BROWSE] After appearance type filter:', filtered.length);
     }
     
-    // Lifestyle filters
-    if (filters.alcohol) {
+    // Lifestyle filters - only apply if they have values
+    if (filters.alcohol && filters.alcohol.trim() !== '') {
       filtered = filtered.filter(profile => profile.alcohol === filters.alcohol);
+      console.log('🔍 [BROWSE] After alcohol filter:', filtered.length);
     }
     
-    if (filters.smoking) {
+    if (filters.smoking && filters.smoking.trim() !== '') {
       filtered = filtered.filter(profile => profile.smoking === filters.smoking);
+      console.log('🔍 [BROWSE] After smoking filter:', filtered.length);
     }
     
-    if (filters.children) {
+    if (filters.children && filters.children.trim() !== '') {
       filtered = filtered.filter(profile => profile.children === filters.children);
+      console.log('🔍 [BROWSE] After children filter:', filtered.length);
     }
     
-    // Personal info filters
-    if (filters.religion) {
+    // Personal info filters - only apply if they have values
+    if (filters.religion && filters.religion.trim() !== '') {
       filtered = filtered.filter(profile => profile.religion === filters.religion);
+      console.log('🔍 [BROWSE] After religion filter:', filtered.length);
     }
     
-    if (filters.zodiacSign) {
+    if (filters.zodiacSign && filters.zodiacSign.trim() !== '') {
       filtered = filtered.filter(profile => profile.zodiacSign === filters.zodiacSign);
+      console.log('🔍 [BROWSE] After zodiac filter:', filtered.length);
     }
     
-    if (filters.englishLevel) {
+    if (filters.englishLevel && filters.englishLevel.trim() !== '') {
       filtered = filtered.filter(profile => profile.englishLevel === filters.englishLevel);
+      console.log('🔍 [BROWSE] After english level filter:', filtered.length);
     }
     
-    // Interests and languages
+    // Interests and languages - only apply if they have values
     if (filters.interests && filters.interests.length > 0) {
       filtered = filtered.filter(profile => 
-        profile.interests && profile.interests.some(interest => 
+        profile.interests && profile.interests.length > 0 && 
+        profile.interests.some(interest => 
           filters.interests.includes(interest)
         )
       );
+      console.log('🔍 [BROWSE] After interests filter:', filtered.length);
     }
     
     if (filters.languages && filters.languages.length > 0) {
       filtered = filtered.filter(profile => 
-        profile.languages && profile.languages.some(language => 
+        profile.languages && profile.languages.length > 0 && 
+        profile.languages.some(language => 
           filters.languages.includes(language)
         )
       );
+      console.log('🔍 [BROWSE] After languages filter:', filtered.length);
     }
     
-    // Special features
-    if (filters.hasIntroVideo) {
+    // Special features - only apply if they are true
+    if (filters.hasIntroVideo === true) {
       filtered = filtered.filter(profile => profile.hasIntroVideo === true);
+      console.log('🔍 [BROWSE] After intro video filter:', filtered.length);
     }
     
-    if (filters.isOnline) {
+    if (filters.isOnline === true) {
       filtered = filtered.filter(profile => profile.isOnline === true);
+      console.log('🔍 [BROWSE] After online filter:', filtered.length);
     }
     
-    if (filters.hasVideo) {
+    if (filters.hasVideo === true) {
       filtered = filtered.filter(profile => profile.hasVideo === true);
+      console.log('🔍 [BROWSE] After video filter:', filtered.length);
     }
     
-    if (filters.hasCameraOn) {
+    if (filters.hasCameraOn === true) {
       filtered = filtered.filter(profile => profile.hasCameraOn === true);
+      console.log('🔍 [BROWSE] After camera on filter:', filtered.length);
     }
     
-    if (filters.birthdaySoon) {
+    if (filters.birthdaySoon === true) {
       filtered = filtered.filter(profile => profile.birthdaySoon === true);
+      console.log('🔍 [BROWSE] After birthday soon filter:', filtered.length);
     }
     
-    if (filters.newProfile) {
+    if (filters.newProfile === true) {
       filtered = filtered.filter(profile => profile.newProfile === true);
+      console.log('🔍 [BROWSE] After new profile filter:', filtered.length);
     }
     
-    if (filters.top1000) {
+    if (filters.top1000 === true) {
       filtered = filtered.filter(profile => profile.top1000 === true);
+      console.log('🔍 [BROWSE] After top1000 filter:', filtered.length);
     }
     
-    if (filters.verified) {
+    if (filters.verified === true) {
       filtered = filtered.filter(profile => profile.verified === true);
+      console.log('🔍 [BROWSE] After verified filter:', filtered.length);
     }
 
+    console.log('🔍 [BROWSE] Final filtered profiles:', filtered.length);
     setFilteredProfiles(filtered);
-  }, [profiles]);
+  }, [profiles, hasInitialized]);
 
   const handleMessage = (profile: Profile) => {
       setChatProfile(profile);
@@ -621,34 +698,58 @@ export function BrowsePage() {
 
           {/* Main Content - Profile Grid */}
           <div className="flex-1">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {currentProfiles.map((profile) => (
-                      <ProfileCard
-                        key={profile.id}
-                        profile={profile}
-                        onMessage={handleMessage}
-                      />
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading profiles...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12">
+                <p className="text-red-600 mb-4">{error}</p>
+                <Button onClick={() => window.location.reload()} variant="outline">
+                  Try Again
+                </Button>
+              </div>
+            ) : filteredProfiles.length === 0 ? (
+              <div className="text-center py-12">
+                <h3 className="text-xl font-medium mb-2">No profiles found</h3>
+                <p className="text-slate-600 mb-4">Try adjusting your filters or check back later</p>
+                <Button onClick={() => setSearchFilters({})} variant="outline">
+                  Clear Filters
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {currentProfiles.map((profile) => (
+                    <ProfileCard
+                      key={profile.id}
+                      profile={profile}
+                      onMessage={handleMessage}
+                    />
+                  ))}
+                </div>
+                
+                {/* Pagination */}
+                {filteredProfiles.length > profilesPerPage && (
+                  <div className="mt-8 flex justify-center gap-2">
+                    {Array.from({ length: Math.ceil(filteredProfiles.length / profilesPerPage) }).map((_, index) => (
+                      <Button
+                        key={index}
+                        variant={currentPage === index + 1 ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          setCurrentPage(index + 1);
+                          scrollToTop();
+                        }}
+                      >
+                        {index + 1}
+                      </Button>
                     ))}
                   </div>
-                  
-                  {/* Pagination */}
-            {filteredProfiles.length > profilesPerPage && (
-              <div className="mt-8 flex justify-center gap-2">
-                {Array.from({ length: Math.ceil(filteredProfiles.length / profilesPerPage) }).map((_, index) => (
-                          <Button
-                    key={index}
-                    variant={currentPage === index + 1 ? "default" : "outline"}
-                            size="sm"
-                    onClick={() => {
-                      setCurrentPage(index + 1);
-                      scrollToTop();
-                    }}
-                  >
-                    {index + 1}
-                            </Button>
-                          ))}
-                    </div>
-              )}
+                )}
+              </>
+            )}
           </div>
         </div>
       </main>

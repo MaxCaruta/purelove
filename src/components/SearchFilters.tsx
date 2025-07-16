@@ -57,48 +57,94 @@ export function SearchFilters({ onFiltersChange, initialFilters = {} }: SearchFi
   // Auto-search when filters change
   useEffect(() => {
     const timer = setTimeout(() => {
-      // Don't trigger search if it's just the initial mount
-      if (Object.keys(filters).some(key => filters[key] !== initialFilters?.[key])) {
+      // Only trigger search if filters have actually changed from initial state
+      const hasChanged = Object.keys(filters).some(key => {
+        const currentValue = filters[key];
+        const initialValue = initialFilters?.[key];
+        
+        // Handle arrays specially
+        if (Array.isArray(currentValue) && Array.isArray(initialValue)) {
+          return currentValue.length !== initialValue.length || 
+                 !currentValue.every((item, index) => item === initialValue[index]);
+        }
+        
+        return currentValue !== initialValue;
+      });
+      
+      console.log('🔍 [SEARCH_FILTERS] Checking if filters changed:', hasChanged);
+      console.log('🔍 [SEARCH_FILTERS] Current filters:', filters);
+      console.log('🔍 [SEARCH_FILTERS] Initial filters:', initialFilters);
+      
+      if (hasChanged) {
+        console.log('🔍 [SEARCH_FILTERS] Triggering search due to filter changes');
         handleSearch();
+      } else {
+        console.log('🔍 [SEARCH_FILTERS] No changes detected, skipping search');
       }
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [filters]);
+  }, [filters, initialFilters]);
+
+  // Don't trigger initial search when component mounts with default filters
+  const [hasInitialized, setHasInitialized] = useState(false);
+  
+  useEffect(() => {
+    if (!hasInitialized) {
+      setHasInitialized(true);
+      return;
+    }
+    
+    // Only trigger search after initial mount
+    const timer = setTimeout(() => {
+      console.log('🔍 [SEARCH_FILTERS] Initial mount - not triggering search');
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [hasInitialized]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    console.log('🔍 [SEARCH_FILTERS] handleInputChange:', name, '=', value);
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSliderChange = (name: string, value: number) => {
+    console.log('🔍 [SEARCH_FILTERS] handleSliderChange:', name, '=', value);
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
+    console.log('🔍 [SEARCH_FILTERS] handleCheckboxChange:', name, '=', checked);
     setFilters((prev) => ({ ...prev, [name]: checked }));
   };
 
   const handleInterestChange = (interest: string) => {
+    console.log('🔍 [SEARCH_FILTERS] handleInterestChange:', interest);
     setFilters((prev) => {
       const newInterests = prev.interests.includes(interest)
         ? prev.interests.filter((i: string) => i !== interest)
         : [...prev.interests, interest];
+      console.log('🔍 [SEARCH_FILTERS] New interests:', newInterests);
       return { ...prev, interests: newInterests };
     });
   };
 
   const handleLanguageChange = (language: string) => {
+    console.log('🔍 [SEARCH_FILTERS] handleLanguageChange:', language);
     setFilters((prev) => {
       const newLanguages = prev.languages.includes(language)
         ? prev.languages.filter((l: string) => l !== language)
         : [...prev.languages, language];
+      console.log('🔍 [SEARCH_FILTERS] New languages:', newLanguages);
       return { ...prev, languages: newLanguages };
     });
   };
 
   const handleSearch = () => {
+    console.log('🔍 [SEARCH_FILTERS] handleSearch called with filters:', filters);
+    
     // Build active filters list
     const newActiveFilters: string[] = [];
     if (filters.ageMin !== 18 || filters.ageMax !== 99) {
@@ -133,11 +179,16 @@ export function SearchFilters({ onFiltersChange, initialFilters = {} }: SearchFi
     if (filters.top1000) newActiveFilters.push('Top 1000');
     if (filters.verified) newActiveFilters.push('Verified');
     
+    console.log('🔍 [SEARCH_FILTERS] Active filters:', newActiveFilters);
+    console.log('🔍 [SEARCH_FILTERS] Calling onFiltersChange with:', filters);
+    
     setActiveFilters(newActiveFilters);
     onFiltersChange(filters);
   };
 
   const clearFilters = () => {
+    console.log('🔍 [SEARCH_FILTERS] clearFilters called');
+    
     const clearedFilters = {
       ageMin: 18,
       ageMax: 99,
@@ -164,12 +215,15 @@ export function SearchFilters({ onFiltersChange, initialFilters = {} }: SearchFi
       verified: false,
     };
     
+    console.log('🔍 [SEARCH_FILTERS] Setting cleared filters:', clearedFilters);
+    
     setFilters(clearedFilters);
     setActiveFilters([]);
     
     // Clear URL parameters
     setSearchParams({});
     
+    console.log('🔍 [SEARCH_FILTERS] Calling onFiltersChange with cleared filters');
     onFiltersChange(clearedFilters);
     
     // Scroll to top when clearing filters
@@ -177,55 +231,79 @@ export function SearchFilters({ onFiltersChange, initialFilters = {} }: SearchFi
   };
 
   const removeFilter = (filter: string) => {
+    console.log('🔍 [SEARCH_FILTERS] removeFilter called with:', filter);
+    
     if (filter.startsWith('Age:')) {
+      console.log('🔍 [SEARCH_FILTERS] Removing age filter');
       setFilters(prev => ({ ...prev, ageMin: 18, ageMax: 99 }));
     } else if (filter.startsWith('Country:')) {
+      console.log('🔍 [SEARCH_FILTERS] Removing country filter');
       setFilters(prev => ({ ...prev, country: '' }));
     } else if (filter.startsWith('City:')) {
+      console.log('🔍 [SEARCH_FILTERS] Removing city filter');
       setFilters(prev => ({ ...prev, city: '' }));
     } else if (filter.startsWith('Eyes:')) {
+      console.log('🔍 [SEARCH_FILTERS] Removing eye color filter');
       setFilters(prev => ({ ...prev, eyeColor: '' }));
     } else if (filter.startsWith('Hair:')) {
+      console.log('🔍 [SEARCH_FILTERS] Removing hair color filter');
       setFilters(prev => ({ ...prev, hairColor: '' }));
     } else if (filter.startsWith('Type:')) {
+      console.log('🔍 [SEARCH_FILTERS] Removing appearance type filter');
       setFilters(prev => ({ ...prev, appearanceType: '' }));
     } else if (filter.startsWith('Alcohol:')) {
+      console.log('🔍 [SEARCH_FILTERS] Removing alcohol filter');
       setFilters(prev => ({ ...prev, alcohol: '' }));
     } else if (filter.startsWith('Smoking:')) {
+      console.log('🔍 [SEARCH_FILTERS] Removing smoking filter');
       setFilters(prev => ({ ...prev, smoking: '' }));
     } else if (filter.startsWith('Children:')) {
+      console.log('🔍 [SEARCH_FILTERS] Removing children filter');
       setFilters(prev => ({ ...prev, children: '' }));
     } else if (filter.startsWith('Religion:')) {
+      console.log('🔍 [SEARCH_FILTERS] Removing religion filter');
       setFilters(prev => ({ ...prev, religion: '' }));
     } else if (filter.startsWith('Zodiac:')) {
+      console.log('🔍 [SEARCH_FILTERS] Removing zodiac filter');
       setFilters(prev => ({ ...prev, zodiacSign: '' }));
     } else if (filter.startsWith('English:')) {
+      console.log('🔍 [SEARCH_FILTERS] Removing english level filter');
       setFilters(prev => ({ ...prev, englishLevel: '' }));
     } else if (interests.includes(filter)) {
+      console.log('🔍 [SEARCH_FILTERS] Removing interest filter:', filter);
       setFilters(prev => ({ 
         ...prev, 
         interests: prev.interests.filter((i: string) => i !== filter)
       }));
     } else if (['English', 'Russian', 'Ukrainian', 'Kazakh', 'Belarusian', 'Polish', 'Czech', 'Romanian', 'Bulgarian', 'Serbian', 'Croatian', 'Latvian', 'Lithuanian', 'Estonian', 'Hungarian', 'Slovak', 'Slovenian', 'German', 'French', 'Italian', 'Spanish', 'Portuguese'].includes(filter)) {
+      console.log('🔍 [SEARCH_FILTERS] Removing language filter:', filter);
       setFilters(prev => ({ 
         ...prev, 
         languages: prev.languages.filter((l: string) => l !== filter)
       }));
     } else if (filter === 'Has Intro Video') {
+      console.log('🔍 [SEARCH_FILTERS] Removing has intro video filter');
       setFilters(prev => ({ ...prev, hasIntroVideo: false }));
     } else if (filter === 'Online') {
+      console.log('🔍 [SEARCH_FILTERS] Removing online filter');
       setFilters(prev => ({ ...prev, isOnline: false }));
     } else if (filter === 'Has Video') {
+      console.log('🔍 [SEARCH_FILTERS] Removing has video filter');
       setFilters(prev => ({ ...prev, hasVideo: false }));
     } else if (filter === 'Camera On') {
+      console.log('🔍 [SEARCH_FILTERS] Removing camera on filter');
       setFilters(prev => ({ ...prev, hasCameraOn: false }));
     } else if (filter === 'Birthday Soon') {
+      console.log('🔍 [SEARCH_FILTERS] Removing birthday soon filter');
       setFilters(prev => ({ ...prev, birthdaySoon: false }));
     } else if (filter === 'New Profile') {
+      console.log('🔍 [SEARCH_FILTERS] Removing new profile filter');
       setFilters(prev => ({ ...prev, newProfile: false }));
     } else if (filter === 'Top 1000') {
+      console.log('🔍 [SEARCH_FILTERS] Removing top 1000 filter');
       setFilters(prev => ({ ...prev, top1000: false }));
     } else if (filter === 'Verified') {
+      console.log('🔍 [SEARCH_FILTERS] Removing verified filter');
       setFilters(prev => ({ ...prev, verified: false }));
     }
   };

@@ -10,25 +10,33 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Create a .env file in the root directory with:');
   console.error('VITE_SUPABASE_URL=your-supabase-url');
   console.error('VITE_SUPABASE_ANON_KEY=your-supabase-anon-key');
-  throw new Error('Missing Supabase configuration');
+  // Don't throw error, just log it and continue with mock data
+  console.warn('⚠️ Continuing with mock data due to missing Supabase configuration');
 }
 
 // Validate that we're not using placeholder values
 if (supabaseUrl === 'https://example.supabase.co') {
   console.error('❌ Using placeholder Supabase URL. Please update your .env file with real credentials.');
-  throw new Error('Invalid Supabase configuration');
+  console.warn('⚠️ Continuing with mock data due to invalid Supabase configuration');
 }
 
-// Create the standard client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create the standard client (will work even with invalid credentials, just won't connect)
+export const supabase = createClient(
+  supabaseUrl || 'https://example.supabase.co', 
+  supabaseAnonKey || 'invalid-key'
+);
 
 // Create a service role client for admin operations
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
+export const supabaseAdmin = createClient(
+  supabaseUrl || 'https://example.supabase.co', 
+  supabaseServiceKey || supabaseAnonKey || 'invalid-key', 
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
   }
-});
+);
 
 // Add error handling for browser extension conflicts
 if (typeof window !== 'undefined') {
@@ -43,3 +51,8 @@ if (typeof window !== 'undefined') {
     }
   };
 }
+
+// Helper function to check if Supabase is properly connected
+export const isSupabaseConnected = () => {
+  return !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== 'https://example.supabase.co');
+};
