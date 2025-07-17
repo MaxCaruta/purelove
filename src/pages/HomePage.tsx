@@ -321,22 +321,22 @@ export function HomePage() {
         </div>
 
         <div className="container mx-auto px-4 relative z-20 py-20">
-          <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[600px]">
+          <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[600px] animate-fade-in-up">
             {/* Left Content */}
             <div className="text-white">
-              <div className="inline-flex items-center gap-2 bg-rose-500/20 backdrop-blur-sm border border-rose-300/30 rounded-full px-4 py-2 mb-6 animate-fade-in">
+              <div className="inline-flex items-center gap-2 bg-rose-500/20 backdrop-blur-sm border border-rose-300/30 rounded-full px-4 py-2 mb-6 ">
                 <Heart className="h-4 w-4 text-rose-300 fill-current animate-pulse" />
                 <span className="text-sm text-rose-100">Trusted by 50,000+ singles worldwide</span>
               </div>
               
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight animate-slide-in-left" style={{animationDelay: '0.1s'}}>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight" style={{animationDelay: '0.1s'}}>
                 Find Your Perfect Match
                 <span className="block bg-gradient-to-r from-rose-300 via-pink-300 to-red-300 bg-clip-text text-transparent">
                   Online Today
                 </span>
               </h1>
               
-              <p className="text-lg md:text-xl text-gray-300 mb-8 leading-relaxed max-w-2xl animate-fade-in-up" style={{animationDelay: '0.2s'}}>
+              <p className="text-lg md:text-xl text-gray-300 mb-8 leading-relaxed max-w-2xl " style={{animationDelay: '0.2s'}}>
                 The leading international dating site with over <span className="text-rose-300 font-semibold">50,000+ verified profiles</span>
               </p>
               
@@ -372,7 +372,14 @@ export function HomePage() {
                         <option value="russia">Russia</option>
                         <option value="kazakhstan">Kazakhstan</option>
                         <option value="belarus">Belarus</option>
+                        <option value="moldova">Moldova</option>
                         <option value="georgia">Georgia</option>
+                        <option value="armenia">Armenia</option>
+                        <option value="azerbaijan">Azerbaijan</option>
+                        <option value="kyrgyzstan">Kyrgyzstan</option>
+                        <option value="tajikistan">Tajikistan</option>
+                        <option value="turkmenistan">Turkmenistan</option>
+                        <option value="uzbekistan">Uzbekistan</option>
                       </select>
                     </div>
                     <div>

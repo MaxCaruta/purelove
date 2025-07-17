@@ -1,247 +1,25 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Heart, MessageCircle, Gift, Shield, Check, Globe, Briefcase, Calendar, MapPin, Languages, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { ChatWindow } from '../components/ChatWindow';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Profile } from '@/types';
-
-// Mock data including notification profiles
-const mockProfiles: Profile[] = [
-  {
-    id: 'c0a6fef9-7cb5-4f69-8c77-a4754e283e77',
-    userId: 'c0a6fef9-7cb5-4f69-8c77-a4754e283e77',
-    firstName: 'Olena',
-    lastName: 'Kovalenko',
-    gender: 'female',
-    birthDate: '1995-05-15',
-    country: 'Ukraine',
-    city: 'Kyiv',
-    bio: 'I feel music in every cell of my body. Looking for someone who shares my passion for arts and travel. I enjoy exploring new places, trying different cuisines, and attending cultural events. In my free time, I like to paint and play the piano. I\'m looking for a genuine connection with someone who appreciates art and has a sense of adventure.',
-    interests: ['Music', 'Travel', 'Art', 'Cooking', 'Photography', 'Dancing'],
-    profession: 'Graphic Designer',
-    languages: ['Ukrainian', 'English', 'Russian'],
-    photos: [
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80',
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80',
-      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80'
-    ],
-    verified: true,
-    createdAt: '2023-01-15',
-  },
-  // Notification profiles
-  {
-    id: 'n1',
-    userId: 'n1',
-    firstName: 'Elena',
-    lastName: 'K.',
-    gender: 'female',
-    birthDate: '1999-05-15',
-    country: 'Ukraine',
-    city: 'Kyiv',
-    bio: 'Sweet and romantic girl looking for true love 💕 I enjoy dancing, music, and spending time with friends. I believe in fairy tale love stories and hope to find my prince charming. In my free time, I like to read romance novels and watch romantic movies.',
-    interests: ['Romance', 'Travel', 'Music', 'Dancing', 'Photography'],
-    profession: 'Model',
-    languages: ['Ukrainian', 'English'],
-    photos: [
-      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=776&q=80',
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80'
-    ],
-    verified: true,
-    createdAt: '2023-01-15',
-    height: 165,
-    weight: 55,
-    eyeColor: 'blue',
-    hairColor: 'blonde',
-    appearanceType: 'slim',
-    alcohol: 'socially',
-    smoking: 'never',
-    children: 'want',
-    religion: 'christian',
-    zodiacSign: 'taurus',
-    englishLevel: 'advanced',
-    hasIntroVideo: true,
-    isOnline: true,
-    hasVideo: true,
-  },
-  {
-    id: 'n2',
-    userId: 'n2',
-    firstName: 'Anastasia',
-    lastName: 'M.',
-    gender: 'female',
-    birthDate: '1997-08-23',
-    country: 'Russia',
-    city: 'Moscow',
-    bio: 'Passionate and caring, ready for serious relationship ❤️ I work as a psychologist and love helping people. I enjoy deep conversations about life, philosophy, and human nature. Looking for someone who values emotional connection.',
-    interests: ['Romance', 'Art', 'Philosophy', 'Psychology', 'Literature'],
-    profession: 'Psychologist',
-    languages: ['Russian', 'English'],
-    photos: [
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=776&q=80',
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80'
-    ],
-    verified: true,
-    createdAt: '2023-02-10',
-    height: 170,
-    weight: 58,
-    eyeColor: 'brown',
-    hairColor: 'brunette',
-    appearanceType: 'athletic',
-    alcohol: 'socially',
-    smoking: 'never',
-    children: 'want',
-    religion: 'orthodox',
-    zodiacSign: 'virgo',
-    englishLevel: 'fluent',
-    hasIntroVideo: false,
-    isOnline: true,
-    hasVideo: false,
-  },
-  {
-    id: 'n3',
-    userId: 'n3',
-    firstName: 'Sofia',
-    lastName: 'D.',
-    gender: 'female',
-    birthDate: '2001-03-18',
-    country: 'Belarus',
-    city: 'Minsk',
-    bio: 'Young and optimistic, love dancing and meeting new people ✨ I\'m a student studying international relations. I enjoy exploring different cultures and learning languages. Always ready for new adventures and experiences.',
-    interests: ['Dancing', 'Music', 'Fashion', 'Travel', 'Languages'],
-    profession: 'Student',
-    languages: ['Belarusian', 'Russian', 'English'],
-    photos: [
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80',
-      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80'
-    ],
-    verified: false,
-    createdAt: '2023-03-18',
-    height: 162,
-    weight: 50,
-    eyeColor: 'blue',
-    hairColor: 'blonde',
-    appearanceType: 'slim',
-    alcohol: 'rarely',
-    smoking: 'never',
-    children: 'maybe',
-    religion: 'christian',
-    zodiacSign: 'pisces',
-    englishLevel: 'intermediate',
-    hasIntroVideo: true,
-    isOnline: true,
-    hasVideo: true,
-  },
-  {
-    id: 'n4',
-    userId: 'n4',
-    firstName: 'Katarina',
-    lastName: 'N.',
-    gender: 'female',
-    birthDate: '1995-07-12',
-    country: 'Czech Republic',
-    city: 'Prague',
-    bio: 'Love exploring old cities and cozy cafes. Looking for meaningful conversations 📚 I work as a tour guide and love sharing the beauty of Prague with visitors. I enjoy history, architecture, and good coffee.',
-    interests: ['History', 'Coffee', 'Architecture', 'Books', 'Travel'],
-    profession: 'Tour Guide',
-    languages: ['Czech', 'English', 'German'],
-    photos: [
-      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80',
-      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=776&q=80'
-    ],
-    verified: true,
-    createdAt: '2023-04-05',
-    height: 168,
-    weight: 56,
-    eyeColor: 'green',
-    hairColor: 'brown',
-    appearanceType: 'athletic',
-    alcohol: 'socially',
-    smoking: 'never',
-    children: 'want',
-    religion: 'catholic',
-    zodiacSign: 'cancer',
-    englishLevel: 'fluent',
-    hasIntroVideo: false,
-    isOnline: true,
-    hasVideo: false,
-  },
-  {
-    id: 'n5',
-    userId: 'n5',
-    firstName: 'Alina',
-    lastName: 'W.',
-    gender: 'female',
-    birthDate: '1998-11-25',
-    country: 'Poland',
-    city: 'Warsaw',
-    bio: 'Creative soul who loves art and good food. Ready for new adventures 🎨 I work as a graphic designer and love creating beautiful things. I enjoy painting, cooking new recipes, and traveling to inspiring places.',
-    interests: ['Art', 'Cooking', 'Travel', 'Design', 'Photography'],
-    profession: 'Graphic Designer',
-    languages: ['Polish', 'English', 'Spanish'],
-    photos: [
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80',
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80'
-    ],
-    verified: true,
-    createdAt: '2023-05-22',
-    height: 165,
-    weight: 54,
-    eyeColor: 'hazel',
-    hairColor: 'brown',
-    appearanceType: 'slim',
-    alcohol: 'socially',
-    smoking: 'rarely',
-    children: 'want',
-    religion: 'catholic',
-    zodiacSign: 'sagittarius',
-    englishLevel: 'advanced',
-    hasIntroVideo: true,
-    isOnline: true,
-    hasVideo: true,
-  },
-  {
-    id: 'n6',
-    userId: 'n6',
-    firstName: 'Arina',
-    lastName: 'B.',
-    gender: 'female',
-    birthDate: '2000-09-08',
-    country: 'Kazakhstan',
-    city: 'Almaty',
-    bio: 'Love nature and outdoor activities. Looking for someone to share life adventures 🏔️ I\'m studying environmental science and passionate about protecting our planet. I enjoy hiking, camping, and photography in beautiful natural settings.',
-    interests: ['Hiking', 'Photography', 'Nature', 'Environmental Science', 'Adventure'],
-    profession: 'Environmental Science Student',
-    languages: ['Kazakh', 'Russian', 'English'],
-    photos: [
-      'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80',
-      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80'
-    ],
-    verified: false,
-    createdAt: '2023-06-14',
-    height: 163,
-    weight: 52,
-    eyeColor: 'brown',
-    hairColor: 'black',
-    appearanceType: 'athletic',
-    alcohol: 'never',
-    smoking: 'never',
-    children: 'maybe',
-    religion: 'muslim',
-    zodiacSign: 'virgo',
-    englishLevel: 'intermediate',
-    hasIntroVideo: false,
-    isOnline: true,
-    hasVideo: false,
-  },
-];
+import { supabase } from '@/lib/supabase';
+import { sendGift } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
+  const { user, updateCoins } = useAuth();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -249,12 +27,89 @@ export function ProfilePage() {
     const saved = localStorage.getItem('likedProfiles');
     return saved ? JSON.parse(saved) : [];
   });
-  
-  // Find the profile based on the ID from the URL
-  const profile = mockProfiles.find(p => p.id === id) || mockProfiles[0];
-  
-  const age = profile.birthDate ? new Date().getFullYear() - new Date(profile.birthDate).getFullYear() : 0;
-  
+  const [openGiftSelectorOnOpen, setOpenGiftSelectorOnOpen] = useState(false);
+
+  // Fetch profile from database
+  useEffect(() => {
+    async function fetchProfile() {
+      if (!id) {
+        setError('Profile ID not found');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+          setError('Profile not found');
+          setLoading(false);
+          return;
+        }
+
+        if (!data) {
+          setError('Profile not found');
+          setLoading(false);
+          return;
+        }
+
+        // Transform the data to match our frontend Profile type
+        const transformedProfile: Profile = {
+          id: data.id,
+          userId: data.id,
+          firstName: data.first_name,
+          lastName: data.last_name,
+          gender: data.gender,
+          birthDate: data.birth_date,
+          country: data.country,
+          city: data.city,
+          bio: data.bio,
+          interests: data.interests || [],
+          profession: data.profession,
+          languages: data.languages || [],
+          photos: data.photos || [],
+          verified: data.verified,
+          createdAt: data.created_at,
+          height: data.height,
+          weight: data.weight,
+          eyeColor: data.eye_color,
+          hairColor: data.hair_color,
+          appearanceType: data.appearance_type,
+          alcohol: data.alcohol,
+          smoking: data.smoking,
+          children: data.children,
+          religion: data.religion,
+          zodiacSign: data.zodiac_sign,
+          englishLevel: data.english_level,
+          hasIntroVideo: data.has_intro_video,
+          isOnline: data.is_online,
+          hasVideo: data.has_video,
+          hasCameraOn: data.has_camera_on,
+          birthdaySoon: data.birthday_soon,
+          newProfile: data.new_profile,
+          top1000: data.top_1000
+        };
+
+        setProfile(transformedProfile);
+      } catch (err) {
+        console.error('Error fetching profile:', err);
+        setError('Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchProfile();
+  }, [id]);
+
   // Save liked profiles to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('likedProfiles', JSON.stringify(likedProfiles));
@@ -272,10 +127,12 @@ export function ProfilePage() {
   };
   
   const handlePrevPhoto = () => {
+    if (!profile) return;
     setCurrentPhotoIndex((prev) => (prev === 0 ? profile.photos.length - 1 : prev - 1));
   };
   
   const handleNextPhoto = () => {
+    if (!profile) return;
     setCurrentPhotoIndex((prev) => (prev === profile.photos.length - 1 ? 0 : prev + 1));
   };
   
@@ -292,6 +149,75 @@ export function ProfilePage() {
     setIsChatOpen(true);
   };
 
+  const handleGiftButton = () => {
+    if (!user) {
+      // Redirect to login if not authenticated
+      navigate('/login');
+      return;
+    }
+    
+    // Prevent sending gifts to yourself
+    if (user.id === profile?.id) {
+      alert('You cannot send gifts to yourself!');
+      return;
+    }
+    
+    // Open the chat - the ChatWindow will handle gift sending
+    setOpenGiftSelectorOnOpen(true);
+    setIsChatOpen(true);
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading profile...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !profile) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-600 mb-4">{error || 'Profile not found'}</p>
+            <Button onClick={() => navigate('/browse')} variant="outline">
+              Back to Browse
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Prevent users from viewing their own profile
+  if (user && user.id === profile.id) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-600 mb-4">You cannot view your own profile</p>
+            <Button onClick={() => navigate('/browse')} variant="outline">
+              Back to Browse
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const age = profile.birthDate ? new Date().getFullYear() - new Date(profile.birthDate).getFullYear() : 0;
+  
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -371,9 +297,28 @@ export function ProfilePage() {
                   <Heart className={`h-4 w-4 ${likedProfiles.includes(profile?.id || '') ? 'fill-current' : ''}`} />
                   <span>{likedProfiles.includes(profile?.id || '') ? 'Liked' : 'Like'}</span>
                 </Button>
-                <Button variant="outline" className="gap-2">
-                  <Gift className="h-4 w-4" />
-                  <span>Gift</span>
+                <Button 
+                  variant="outline" 
+                  className="gap-2 relative overflow-hidden group bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200 hover:border-amber-300 hover:from-amber-100 hover:to-yellow-100 transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                  onClick={handleGiftButton}
+                >
+                  {/* Animated sparkles */}
+                  <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute -top-1 -left-1 w-2 h-2 bg-yellow-400 rounded-full animate-ping opacity-75"></div>
+                    <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-amber-400 rounded-full animate-ping opacity-75" style={{animationDelay: '0.5s'}}></div>
+                    <div className="absolute -bottom-1 -left-2 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-75" style={{animationDelay: '1s'}}></div>
+                  </div>
+                  
+                  {/* Gift icon with animation */}
+                  <Gift className="h-4 w-4 text-amber-600 group-hover:text-amber-700 group-hover:scale-110 transition-all duration-300" />
+                  
+                  {/* Text with gradient */}
+                  <span className="bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent font-semibold group-hover:from-amber-700 group-hover:to-yellow-700 transition-all duration-300">
+                    Send Gift
+                  </span>
+                  
+                  {/* Hover effect overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-amber-200/20 to-yellow-200/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-md"></div>
                 </Button>
               </div>
               
@@ -426,68 +371,7 @@ export function ProfilePage() {
                 </CardContent>
               </Card>
               
-              {/* Verification Card */}
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-lg mb-4">Verification Status</h3>
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className={`h-5 w-5 rounded-full flex items-center justify-center ${profile.verified ? 'bg-green-100' : 'bg-slate-100'}`}>
-                        {profile.verified ? (
-                          <Check className="h-3 w-3 text-green-600" />
-                        ) : (
-                          <X className="h-3 w-3 text-slate-400" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p>Identity Verified</p>
-                        <p className="text-sm text-slate-500">
-                          {profile.verified
-                            ? 'ID and personal information verified'
-                            : 'Verification pending'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <div className={`h-5 w-5 rounded-full flex items-center justify-center ${profile.verified ? 'bg-green-100' : 'bg-slate-100'}`}>
-                        {profile.verified ? (
-                          <Check className="h-3 w-3 text-green-600" />
-                        ) : (
-                          <X className="h-3 w-3 text-slate-400" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p>Photo Verification</p>
-                        <p className="text-sm text-slate-500">
-                          {profile.verified
-                            ? 'Photos match identity documents'
-                            : 'Verification pending'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <div className={`h-5 w-5 rounded-full flex items-center justify-center ${profile.verified ? 'bg-green-100' : 'bg-slate-100'}`}>
-                        {profile.verified ? (
-                          <Check className="h-3 w-3 text-green-600" />
-                        ) : (
-                          <X className="h-3 w-3 text-slate-400" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p>Background Check</p>
-                        <p className="text-sm text-slate-500">
-                          {profile.verified
-                            ? 'Background check completed'
-                            : 'Verification pending'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+
             </div>
             
             {/* Right Column - Profile Details */}
@@ -616,6 +500,8 @@ export function ProfilePage() {
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         searchFilters={{}}
+        openGiftSelectorOnOpen={openGiftSelectorOnOpen}
+        setOpenGiftSelectorOnOpen={setOpenGiftSelectorOnOpen}
       />
     </div>
   );

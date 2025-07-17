@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Heart, MessageCircle, X, Check, Shield, ChevronLeft, ChevronRight, Gift } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -28,6 +28,7 @@ export function ProfileCard({
   const [liked, setLiked] = useState(() => isProfileLiked(profile.id));
   const { user } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   
   // Memoize age calculation to prevent unnecessary re-computations
   const age = useMemo(() => {
@@ -39,6 +40,11 @@ export function ProfileCard({
     setLiked(isProfileLiked(profile.id));
   }, [profile.id]);
 
+  const handleCardClick = () => {
+    // Navigate to profile page
+    navigate(`/profile/${profile.id}`);
+  };
+
   const handlePrevPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentPhotoIndex((prev) => (prev === 0 ? profile.photos.length - 1 : prev - 1));
@@ -49,7 +55,8 @@ export function ProfileCard({
     setCurrentPhotoIndex((prev) => (prev === profile.photos.length - 1 ? 0 : prev + 1));
   };
 
-  const handleLike = () => {
+  const handleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (liked) {
       removeLike(profile.id);
     } else {
@@ -58,7 +65,8 @@ export function ProfileCard({
     setLiked(!liked);
   };
 
-  const handleMessage = () => {
+  const handleMessage = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!user) {
       toast.error('Please sign in to start messaging', 'Authentication Required');
       setTimeout(() => {
@@ -70,7 +78,10 @@ export function ProfileCard({
   };
 
   return (
-    <Card className={`overflow-hidden hover-lift group animate-fade-in ${className}`}>
+    <Card 
+      className={`overflow-hidden hover-lift group animate-fade-in cursor-pointer ${className}`}
+      onClick={handleCardClick}
+    >
       <div className="relative overflow-hidden">
         <div className="transition-transform duration-500 group-hover:scale-105">
           {profile.photos && profile.photos.length > 0 && profile.photos[currentPhotoIndex] ? (

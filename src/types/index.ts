@@ -193,6 +193,14 @@ export interface ChatMessage {
   voiceUrl?: string;
   duration?: number;
   status?: 'sending' | 'sent' | 'delivered' | 'read';
+  giftData?: {
+    name: string;
+    cost: number;
+    category?: string;
+    giftType: 'real' | 'virtual';
+    image?: string;
+    quantity?: number;
+  };
 }
 
 export interface AdminStats {

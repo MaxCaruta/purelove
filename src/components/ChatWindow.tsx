@@ -66,9 +66,11 @@ interface ChatWindowProps {
   isOpen: boolean;
   onClose: () => void;
   searchFilters?: any;
+  openGiftSelectorOnOpen?: boolean;
+  setOpenGiftSelectorOnOpen?: (val: boolean) => void;
 }
 
-export function ChatWindow({ profile, isOpen, onClose, searchFilters = {} }: ChatWindowProps) {
+export function ChatWindow({ profile, isOpen, onClose, searchFilters = {}, openGiftSelectorOnOpen, setOpenGiftSelectorOnOpen }: ChatWindowProps) {
   // Early returns MUST come before any hooks
   if (!isOpen) return null;
   
@@ -269,6 +271,57 @@ export function ChatWindow({ profile, isOpen, onClose, searchFilters = {} }: Cha
     }
   }, [isOpen, user?.id, isInitialized]);
 
+  // Periodic sync of unread counts from database for real users
+  useEffect(() => {
+    if (!isOpen || !user?.id || !isValidUUID(user.id) || !isInitialized) return;
+
+    const syncUnreadCounts = async () => {
+      try {
+        console.log('🔄 [CHAT] Syncing unread counts from database...');
+        
+        const { data: conversationsData, error } = await supabase
+          .from('conversations')
+          .select('user1_id, user2_id, user1_unread_count, user2_unread_count')
+          .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+
+        if (error) {
+          console.error('❌ [CHAT] Failed to sync unread counts:', error);
+          return;
+        }
+
+        if (conversationsData) {
+          setConversations(prev => prev.map(conv => {
+            const dbConversation = conversationsData.find(dbConv => 
+              (dbConv.user1_id === user.id && dbConv.user2_id === conv.id) ||
+              (dbConv.user2_id === user.id && dbConv.user1_id === conv.id)
+            );
+
+            if (dbConversation) {
+              const isUser1 = dbConversation.user1_id === user.id;
+              const dbUnreadCount = isUser1 ? dbConversation.user1_unread_count : dbConversation.user2_unread_count;
+              
+              if (conv.unreadCount !== dbUnreadCount) {
+                console.log(`🔄 [CHAT] Syncing unread count for ${conv.profile.firstName}: ${conv.unreadCount} -> ${dbUnreadCount}`);
+                return { ...conv, unreadCount: dbUnreadCount };
+              }
+            }
+            return conv;
+          }));
+        }
+      } catch (error) {
+        console.error('❌ [CHAT] Error syncing unread counts:', error);
+      }
+    };
+
+    // Sync immediately
+    syncUnreadCounts();
+
+    // Set up periodic sync every 30 seconds
+    const interval = setInterval(syncUnreadCounts, 30000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, user?.id, isInitialized]);
+
   // Real-time message subscription
   useEffect(() => {
     if (!isOpen || !user?.id || !isValidUUID(user.id)) {
@@ -431,11 +484,10 @@ export function ChatWindow({ profile, isOpen, onClose, searchFilters = {} }: Cha
                   console.log('🔔 [CHAT] Adding incoming message');
                   updatedMessages.push(message);
                   
-                  // Increment unread count only if this conversation is not currently active
-                  if (activeConversation !== conv.id) {
-                    newUnreadCount = conv.unreadCount + 1;
-                    console.log('🔔 [CHAT] Incrementing unread count for conversation:', conv.profile.firstName, 'New count:', newUnreadCount);
-                  }
+                  // Don't increment unread count in real-time subscription
+                  // Let the database and periodic sync handle unread counts
+                  // This prevents conflicts between real-time updates and database state
+                  console.log('🔔 [CHAT] Not incrementing unread count in real-time (will be synced from database)');
                 }
                 
                 // Set appropriate last message text based on type
@@ -952,6 +1004,8 @@ export function ChatWindow({ profile, isOpen, onClose, searchFilters = {} }: Cha
           if (!message.isOwn && activeConversation !== conversationId) {
             newUnreadCount = conv.unreadCount + 1;
             console.log('🔔 [CHAT] Incrementing unread count for localStorage conversation:', conv.profile.firstName, 'New count:', newUnreadCount);
+          } else if (!message.isOwn && activeConversation === conversationId) {
+            console.log('🔔 [CHAT] Not incrementing unread count for active conversation:', conv.profile.firstName);
           }
           
             return {
@@ -1109,16 +1163,63 @@ export function ChatWindow({ profile, isOpen, onClose, searchFilters = {} }: Cha
     }
   };
 
-  const handleConversationSwitch = (conversationId: string) => {
-    // Clear unread count when switching to a conversation
-    setConversations(prev => prev.map(conv => 
-      conv.id === conversationId 
-        ? { ...conv, unreadCount: 0 }
-        : conv
-    ));
-    
+  const handleConversationSwitch = async (conversationId: string) => {
     setActiveConversation(conversationId);
     setShowMoreMenu(false);
+    
+    // Mark conversation as read in database
+    if (user && isValidUUID(user.id) && isValidUUID(conversationId)) {
+      try {
+        console.log('📖 [CHAT] Marking conversation as read in database:', {
+          userId: user.id,
+          conversationId: conversationId
+        });
+        
+        // Call the database function to mark conversation as read
+        const { error } = await supabase.rpc('mark_conversation_read', {
+          other_user_uuid: conversationId
+        });
+        
+        if (error) {
+          console.error('❌ [CHAT] Failed to mark conversation as read:', error);
+        } else {
+          console.log('✅ [CHAT] Successfully marked conversation as read in database');
+          
+          // Fetch the updated unread count from the database
+          const { data: conversationData, error: fetchError } = await supabase
+            .from('conversations')
+            .select('user1_unread_count, user2_unread_count, user1_id, user2_id')
+            .or(`and(user1_id.eq.${user.id},user2_id.eq.${conversationId}),and(user1_id.eq.${conversationId},user2_id.eq.${user.id})`)
+            .single();
+          
+          if (fetchError) {
+            console.error('❌ [CHAT] Failed to fetch updated unread count:', fetchError);
+          } else if (conversationData) {
+            // Determine which unread count to use based on user position in conversation
+            const isUser1 = conversationData.user1_id === user.id;
+            const actualUnreadCount = isUser1 ? conversationData.user1_unread_count : conversationData.user2_unread_count;
+            
+            console.log('📖 [CHAT] Updated unread count from database:', actualUnreadCount);
+            
+            // Update the frontend state with the actual unread count from database
+            setConversations(prev => prev.map(conv => 
+              conv.id === conversationId 
+                ? { ...conv, unreadCount: actualUnreadCount }
+                : conv
+            ));
+          }
+        }
+      } catch (error) {
+        console.error('❌ [CHAT] Error marking conversation as read:', error);
+      }
+    } else {
+      // For demo/localStorage conversations, just clear the unread count
+      setConversations(prev => prev.map(conv => 
+        conv.id === conversationId 
+          ? { ...conv, unreadCount: 0 }
+          : conv
+      ));
+    }
   };
 
   const getCurrentConversation = () => {
@@ -2097,13 +2198,23 @@ export function ChatWindow({ profile, isOpen, onClose, searchFilters = {} }: Cha
     }
   };
 
-  // Save gift message to Supabase
+    // Save gift message to Supabase
   const saveGiftToSupabase = async (messageId: string, gift: any) => {
     try {
+      // Get the receiver ID from the profile
+      const receiverId = profile.id;
+      
+      // Skip saving if this is not a user-initiated gift (e.g., admin/model sending)
+      // Check if the current user is an admin or if this is an admin context
+      if (user?.role && (user.role.includes('admin') || user.role.includes('super_admin'))) {
+        console.log('🎁 [CHAT] Admin user detected, skipping Supabase save (gift should be sent via AdminService)');
+        return;
+      }
+      
       console.log('🎁 Saving gift to Supabase:', {
         messageId,
         sender_id: user!.id,
-        receiver_id: activeConversation,
+        receiver_id: receiverId,
         content: gift.quantity > 1 
           ? `${gift.quantity}x ${gift.name}` 
           : gift.name,
@@ -2111,13 +2222,13 @@ export function ChatWindow({ profile, isOpen, onClose, searchFilters = {} }: Cha
         gift_name: gift.name,
         gift_cost: gift.cost,
         senderIdValid: isValidUUID(user!.id),
-        receiverIdValid: isValidUUID(activeConversation)
+        receiverIdValid: isValidUUID(receiverId)
       });
 
       // Update message in database
       const insertData: any = {
         sender_id: user!.id,
-        receiver_id: activeConversation,
+        receiver_id: receiverId,
         content: gift.quantity > 1 
           ? `${gift.quantity}x ${gift.name}` 
           : gift.name,
@@ -2273,6 +2384,13 @@ export function ChatWindow({ profile, isOpen, onClose, searchFilters = {} }: Cha
 
     toast.warning(`${currentProfile?.firstName} ${currentCallType === 'video' ? "is currently unavailable. Your call couldn't be completed." : "didn't answer your call. Try sending a message instead."}`, 'Call Not Answered');
   };
+
+  useEffect(() => {
+    if (isOpen && openGiftSelectorOnOpen) {
+      setShowGiftSelector(true);
+      setOpenGiftSelectorOnOpen && setOpenGiftSelectorOnOpen(false);
+    }
+  }, [isOpen, openGiftSelectorOnOpen, setOpenGiftSelectorOnOpen]);
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4">

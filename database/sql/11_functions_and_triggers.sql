@@ -214,6 +214,61 @@ CREATE TRIGGER update_profiles_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+-- Function to send a gift transaction
+CREATE OR REPLACE FUNCTION send_gift_transaction(
+  p_sender_id UUID,
+  p_receiver_id UUID,
+  p_gift_id UUID,
+  p_quantity INTEGER DEFAULT 1,
+  p_total_cost INTEGER
+)
+RETURNS VOID AS $$
+BEGIN
+  -- Start transaction
+  BEGIN
+    -- Deduct coins from sender
+    UPDATE profiles 
+    SET coins = coins - p_total_cost 
+    WHERE id = p_sender_id AND coins >= p_total_cost;
+    
+    -- Check if update was successful (sender had enough coins)
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Insufficient coins';
+    END IF;
+    
+    -- Add coins to receiver (optional - you might want to give them coins for receiving gifts)
+    -- UPDATE profiles 
+    -- SET coins = coins + (p_total_cost / 10) 
+    -- WHERE id = p_receiver_id;
+    
+    -- Record the gift transaction
+    INSERT INTO gift_transactions (
+      sender_id,
+      receiver_id,
+      gift_id,
+      quantity,
+      coins_spent,
+      created_at
+    ) VALUES (
+      p_sender_id,
+      p_receiver_id,
+      p_gift_id,
+      p_quantity,
+      p_total_cost,
+      NOW()
+    );
+    
+    -- Commit transaction
+    COMMIT;
+  EXCEPTION
+    WHEN OTHERS THEN
+      -- Rollback on any error
+      ROLLBACK;
+      RAISE;
+  END;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Comments for documentation
 COMMENT ON FUNCTION update_user_online_status() IS 'Updates user online status based on session activity';
 COMMENT ON FUNCTION expire_subscriptions() IS 'Automatically expires subscriptions that have passed their expiry date';
@@ -225,3 +280,4 @@ COMMENT ON FUNCTION get_age(DATE) IS 'Calculate age from birth date';
 COMMENT ON FUNCTION get_user_conversations(UUID) IS 'Get conversation summaries for a user including last message and unread count';
 COMMENT ON FUNCTION mark_conversation_read(UUID, UUID) IS 'Mark all messages in a conversation as read';
 COMMENT ON FUNCTION update_updated_at_column() IS 'Automatically update updated_at timestamp'; 
+COMMENT ON FUNCTION send_gift_transaction(UUID, UUID, UUID, INTEGER, INTEGER) IS 'Send a gift from one user to another, deducting coins and recording the transaction'; 

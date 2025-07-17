@@ -12,6 +12,7 @@ import { scrollToTop } from '@/components/ScrollToTop';
 import { Profile } from '@/types';
 import { addLike, removeLike, isProfileLiked } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 
 // Mock data
 const mockProfiles: Profile[] = [
@@ -368,6 +369,7 @@ const mockProfiles: Profile[] = [
 ];
 
 export function BrowsePage() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
@@ -383,22 +385,209 @@ export function BrowsePage() {
   const [error, setError] = useState<string | null>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
 
+  // Convert URL parameters to filter format
+  const convertUrlParamsToFilters = useCallback(() => {
+    const ageRange = searchParams.get('ageRange');
+    const country = searchParams.get('country');
+    const interest = searchParams.get('interest');
+    
+    const filters: Record<string, any> = {
+      ageMin: 18,
+      ageMax: 99,
+      country: '',
+      interests: [],
+      // ... other default values
+    };
+    
+    // Convert ageRange to ageMin/ageMax
+    if (ageRange) {
+      if (ageRange === '18-24') {
+        filters.ageMin = 18;
+        filters.ageMax = 24;
+      } else if (ageRange === '25-34') {
+        filters.ageMin = 25;
+        filters.ageMax = 34;
+      } else if (ageRange === '35-44') {
+        filters.ageMin = 35;
+        filters.ageMax = 44;
+      } else if (ageRange === '45+') {
+        filters.ageMin = 45;
+        filters.ageMax = 99;
+      }
+    }
+    
+    // Set country filter
+    if (country) {
+      filters.country = country;
+    }
+    
+    // Set interest filter
+    if (interest) {
+      filters.interests = [interest];
+    }
+    
+    console.log('🔍 [BROWSE] Converted URL params to filters:', filters);
+    return filters;
+  }, [searchParams]);
+
+  // Initialize filters from URL parameters
+  useEffect(() => {
+    const urlFilters = convertUrlParamsToFilters();
+    if (Object.keys(urlFilters).length > 0) {
+      console.log('🔍 [BROWSE] Setting initial filters from URL:', urlFilters);
+      setSearchFilters(urlFilters);
+      // Force filter component to re-render with new initial values
+      setFilterKey(prev => prev + 1);
+    }
+  }, [convertUrlParamsToFilters]);
+
+
+
+  // Function to apply filters to data immediately (without state dependencies)
+  const applyFiltersToData = (data: Profile[], filters: Record<string, any>) => {
+    console.log('🔍 [BROWSE] Applying filters to data immediately:', filters);
+    console.log('🔍 [BROWSE] Total profiles to filter:', data.length);
+    
+    // Check if any filters are actually set (not default values)
+    const hasActiveFilters = (
+      (filters.ageMin !== 18 || filters.ageMax !== 99) ||
+      (filters.country && filters.country.trim() !== '') ||
+      (filters.city && filters.city.trim() !== '') ||
+      (filters.eyeColor && filters.eyeColor.trim() !== '') ||
+      (filters.hairColor && filters.hairColor.trim() !== '') ||
+      (filters.appearanceType && filters.appearanceType.trim() !== '') ||
+      (filters.alcohol && filters.alcohol.trim() !== '') ||
+      (filters.smoking && filters.smoking.trim() !== '') ||
+      (filters.children && filters.children.trim() !== '') ||
+      (filters.religion && filters.religion.trim() !== '') ||
+      (filters.zodiacSign && filters.zodiacSign.trim() !== '') ||
+      (filters.englishLevel && filters.englishLevel.trim() !== '') ||
+      (filters.interests && filters.interests.length > 0) ||
+      (filters.languages && filters.languages.length > 0) ||
+      filters.hasIntroVideo === true ||
+      filters.isOnline === true ||
+      filters.hasVideo === true ||
+      filters.hasCameraOn === true ||
+      filters.birthdaySoon === true ||
+      filters.newProfile === true ||
+      filters.top1000 === true ||
+      filters.verified === true
+    );
+    
+    if (!hasActiveFilters) {
+      console.log('🔍 [BROWSE] No active filters, showing all profiles');
+      setFilteredProfiles([...data]);
+      return;
+    }
+    
+    // Apply filters
+    let filtered = [...data];
+    
+    // Age filter
+    if (filters.ageMin !== 18 || filters.ageMax !== 99) {
+      filtered = filtered.filter(profile => {
+        if (!profile.birthDate) return true;
+        const age = new Date().getFullYear() - new Date(profile.birthDate).getFullYear();
+        return age >= filters.ageMin && age <= filters.ageMax;
+      });
+      console.log('🔍 [BROWSE] After age filter:', filtered.length);
+    }
+    
+    // Country filter - case insensitive matching
+    if (filters.country && filters.country.trim() !== '') {
+      filtered = filtered.filter(profile => 
+        profile.country && profile.country.toLowerCase() === filters.country.toLowerCase()
+      );
+      console.log('🔍 [BROWSE] After country filter:', filtered.length);
+    }
+    
+    // Interest filter
+    if (filters.interests && filters.interests.length > 0) {
+      filtered = filtered.filter(profile => 
+        profile.interests && profile.interests.length > 0 && 
+        profile.interests.some(interest => 
+          filters.interests.includes(interest)
+        )
+      );
+      console.log('🔍 [BROWSE] After interest filter:', filtered.length);
+    }
+    
+    console.log('🔍 [BROWSE] Final filtered profiles:', filtered.length);
+    setFilteredProfiles(filtered);
+  };
+
   // Fetch real model profiles from Supabase
   useEffect(() => {
     async function fetchModels() {
       setLoading(true);
       setError(null);
+      // First, let's check if there are any profiles at all
+      const { data: allProfiles, error: allError } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      console.log('🔍 [BROWSE] All profiles in database:', allProfiles?.length || 0);
+      if (allProfiles && allProfiles.length > 0) {
+        console.log('🔍 [BROWSE] Sample profile roles:', allProfiles.slice(0, 5).map(p => ({ id: p.id, role: p.role, name: p.first_name })));
+      }
+      
+      // Now get only model profiles, excluding the current user
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('role', 'model')
+        .neq('id', user?.id || '') // Exclude current user
         .order('created_at', { ascending: false });
 
       if (error) {
         setError('Failed to load models.');
         setProfiles([]);
         setFilteredProfiles([]);
+      } else if (!data || data.length === 0) {
+        console.log('🔍 [BROWSE] No model profiles found, showing all profiles instead');
+        // If no model profiles, show all profiles
+        const transformedData = (allProfiles || []).map(profile => ({
+          id: profile.id,
+          userId: profile.id,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          gender: profile.gender,
+          birthDate: profile.birth_date,
+          country: profile.country,
+          city: profile.city,
+          bio: profile.bio,
+          interests: profile.interests || [],
+          profession: profile.profession,
+          languages: profile.languages || [],
+          photos: profile.photos || [],
+          verified: profile.verified,
+          createdAt: profile.created_at,
+          height: profile.height,
+          weight: profile.weight,
+          eyeColor: profile.eye_color,
+          hairColor: profile.hair_color,
+          appearanceType: profile.appearance_type,
+          alcohol: profile.alcohol,
+          smoking: profile.smoking,
+          children: profile.children,
+          religion: profile.religion,
+          zodiacSign: profile.zodiac_sign,
+          englishLevel: profile.english_level,
+          hasIntroVideo: profile.has_intro_video,
+          isOnline: profile.is_online,
+          hasVideo: profile.has_video,
+          hasCameraOn: profile.has_camera_on,
+          birthdaySoon: profile.birthday_soon,
+          newProfile: profile.new_profile,
+          top1000: profile.top_1000
+        }));
+        
+        setProfiles(transformedData);
+        setFilteredProfiles(transformedData);
       } else {
+        console.log('🔍 [BROWSE] Raw data from database:', data?.length || 0, 'profiles');
+        
         // Transform the data to match our frontend Profile type
         const transformedData = (data || []).map(profile => ({
           id: profile.id,
@@ -437,12 +626,97 @@ export function BrowsePage() {
         }));
 
         setProfiles(transformedData);
-        setFilteredProfiles(transformedData);
+        
+        // Check if we have URL parameters - if so, apply filters immediately
+        const hasUrlParams = searchParams.get('ageRange') || searchParams.get('country') || searchParams.get('interest');
+        if (hasUrlParams) {
+          console.log('🔍 [BROWSE] URL parameters detected, applying filters immediately');
+          const urlFilters = convertUrlParamsToFilters();
+          // Apply filters immediately before setting loading to false
+          applyFiltersToData(transformedData, urlFilters);
+        } else {
+          console.log('🔍 [BROWSE] No URL parameters, showing all profiles');
+          setFilteredProfiles(transformedData); // Show all profiles if no URL params
+        }
       }
       setLoading(false);
     }
     fetchModels();
   }, []);
+
+  // Function to apply filters directly (without initialization checks)
+  const applyFiltersDirectly = useCallback((filters: Record<string, any>) => {
+    console.log('🔍 [BROWSE] Applying filters directly:', filters);
+    console.log('🔍 [BROWSE] Total profiles available:', profiles.length);
+    console.log('🔍 [BROWSE] Sample profile countries:', profiles.slice(0, 3).map(p => p.country));
+    
+    // Check if any filters are actually set (not default values)
+    const hasActiveFilters = (
+      (filters.ageMin !== 18 || filters.ageMax !== 99) ||
+      (filters.country && filters.country.trim() !== '') ||
+      (filters.city && filters.city.trim() !== '') ||
+      (filters.eyeColor && filters.eyeColor.trim() !== '') ||
+      (filters.hairColor && filters.hairColor.trim() !== '') ||
+      (filters.appearanceType && filters.appearanceType.trim() !== '') ||
+      (filters.alcohol && filters.alcohol.trim() !== '') ||
+      (filters.smoking && filters.smoking.trim() !== '') ||
+      (filters.children && filters.children.trim() !== '') ||
+      (filters.religion && filters.religion.trim() !== '') ||
+      (filters.zodiacSign && filters.zodiacSign.trim() !== '') ||
+      (filters.englishLevel && filters.englishLevel.trim() !== '') ||
+      (filters.interests && filters.interests.length > 0) ||
+      (filters.languages && filters.languages.length > 0) ||
+      filters.hasIntroVideo === true ||
+      filters.isOnline === true ||
+      filters.hasVideo === true ||
+      filters.hasCameraOn === true ||
+      filters.birthdaySoon === true ||
+      filters.newProfile === true ||
+      filters.top1000 === true ||
+      filters.verified === true
+    );
+    
+    if (!hasActiveFilters) {
+      console.log('🔍 [BROWSE] No active filters, showing all profiles');
+      setFilteredProfiles([...profiles]);
+      return;
+    }
+    
+    // Apply filters
+    let filtered = [...profiles];
+    
+    // Age filter
+    if (filters.ageMin !== 18 || filters.ageMax !== 99) {
+      filtered = filtered.filter(profile => {
+        if (!profile.birthDate) return true;
+        const age = new Date().getFullYear() - new Date(profile.birthDate).getFullYear();
+        return age >= filters.ageMin && age <= filters.ageMax;
+      });
+    }
+    
+    // Country filter - case insensitive matching
+    if (filters.country && filters.country.trim() !== '') {
+      filtered = filtered.filter(profile => 
+        profile.country && profile.country.toLowerCase() === filters.country.toLowerCase()
+      );
+      console.log('🔍 [BROWSE] After country filter:', filtered.length);
+    }
+    
+    // Interest filter
+    if (filters.interests && filters.interests.length > 0) {
+      filtered = filtered.filter(profile => 
+        profile.interests && profile.interests.length > 0 && 
+        profile.interests.some(interest => 
+          filters.interests.includes(interest)
+        )
+      );
+    }
+    
+    console.log('🔍 [BROWSE] Final filtered profiles:', filtered.length);
+    setFilteredProfiles(filtered);
+  }, [profiles]);
+
+
 
   // Handle opening chat from notification
   useEffect(() => {
@@ -471,16 +745,11 @@ export function BrowsePage() {
   const handleFiltersChange = useCallback((filters: Record<string, any>) => {
     console.log('🔍 [BROWSE] Filter change triggered with:', filters);
     
-    // Skip initial filter application
-    if (!hasInitialized) {
-      console.log('🔍 [BROWSE] Skipping initial filter application');
-      setHasInitialized(true);
-      setSearchFilters(filters);
-      return;
-    }
-    
     setSearchFilters(filters);
     setCurrentPage(1); // Reset to first page when filters change
+    
+    // Always apply filters immediately - no skipping
+    setHasInitialized(true);
     
     // Check if any filters are actually set (not default values)
     const hasActiveFilters = (
@@ -658,7 +927,9 @@ export function BrowsePage() {
 
     console.log('🔍 [BROWSE] Final filtered profiles:', filtered.length);
     setFilteredProfiles(filtered);
-  }, [profiles, hasInitialized]);
+  }, [profiles, hasInitialized, searchParams]);
+
+
 
   const handleMessage = (profile: Profile) => {
       setChatProfile(profile);

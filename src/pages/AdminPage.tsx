@@ -131,6 +131,7 @@ const AdminPage = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const [newMessage, setNewMessage] = useState('');
+  const [showGiftSelector, setShowGiftSelector] = useState(false);
 
   // Add state for user type filter
   const [userTypeFilter, setUserTypeFilter] = useState<'models' | 'real'>('real');
@@ -670,36 +671,62 @@ const AdminPage = () => {
                 if (isSelectedConversation) {
                   console.log('🔔 [ADMIN] Adding message to selected conversation');
                   
-                  const newChatMessage: ChatMessage = {
-                    id: newMessage.id,
-                    conversationId: currentSelectedConversation.id,
-                    content: newMessage.content,
-                    role: newMessage.sender_id === currentSelectedConversation.userId ? 'user' : 'assistant',
-                    timestamp: newMessage.created_at,
-                    isAdminResponse: false,
-                    type: newMessage.type || 'text',
-                    imageUrl: newMessage.type === 'image' ? newMessage.image_url : undefined,
-                    voiceUrl: newMessage.type === 'voice' ? newMessage.voice_url : undefined,
-                    duration: newMessage.duration || undefined,
-                    status: 'delivered'
-                  };
+                  console.log('🔍 [ADMIN] Message role assignment:', {
+                    sender_id: newMessage.sender_id,
+                    profileId: currentSelectedConversation.profileId,
+                    userId: currentSelectedConversation.userId,
+                    senderMatchesProfile: newMessage.sender_id === currentSelectedConversation.profileId,
+                    senderMatchesUser: newMessage.sender_id === currentSelectedConversation.userId
+                  });
+                  
+                  // Check if message already exists to prevent duplicates
+                  const messageExists = currentSelectedConversation.messages?.some(msg => msg.id === newMessage.id);
+                  
+                  if (!messageExists) {
+                    const newChatMessage: ChatMessage = {
+                      id: newMessage.id,
+                      conversationId: currentSelectedConversation.id,
+                      content: newMessage.content,
+                      role: newMessage.sender_id === currentSelectedConversation.profileId ? 'assistant' : 'user',
+                      timestamp: newMessage.created_at,
+                      isAdminResponse: newMessage.sender_id === currentSelectedConversation.profileId, // Set to true if sent by model (admin)
+                      type: newMessage.type || 'text',
+                      imageUrl: newMessage.type === 'image' ? newMessage.image_url : undefined,
+                      voiceUrl: newMessage.type === 'voice' ? newMessage.voice_url : undefined,
+                      duration: newMessage.duration || undefined,
+                      status: 'delivered'
+                    };
 
-                  // Format last message based on type
-                  let lastMessageText = newMessage.content;
-                  if (newMessage.type === 'gift') {
-                    lastMessageText = `🎁 ${newMessage.content}`;
-                  } else if (newMessage.type === 'image') {
-                    lastMessageText = '📷 Photo';
-                  } else if (newMessage.type === 'voice') {
-                    lastMessageText = '🎵 Voice message';
+                    console.log('🔍 [ADMIN] Real-time message role assignment:', {
+                      messageId: newMessage.id,
+                      sender_id: newMessage.sender_id?.substring(0, 8),
+                      profileId: currentSelectedConversation.profileId?.substring(0, 8),
+                      userId: currentSelectedConversation.userId?.substring(0, 8),
+                      assignedRole: newChatMessage.role,
+                      senderMatchesProfile: newMessage.sender_id === currentSelectedConversation.profileId,
+                      senderMatchesUser: newMessage.sender_id === currentSelectedConversation.userId,
+                      isDuplicate: messageExists
+                    });
+
+                    // Format last message based on type
+                    let lastMessageText = newMessage.content;
+                    if (newMessage.type === 'gift') {
+                      lastMessageText = `🎁 ${newMessage.content}`;
+                    } else if (newMessage.type === 'image') {
+                      lastMessageText = '📷 Photo';
+                    } else if (newMessage.type === 'voice') {
+                      lastMessageText = '🎵 Voice message';
+                    }
+
+                    setSelectedConversation(prev => prev ? {
+                      ...prev,
+                      messages: [...prev.messages, newChatMessage],
+                      lastMessage: lastMessageText,
+                      lastMessageAt: newMessage.created_at
+                    } : null);
+                  } else {
+                    console.log('🔍 [ADMIN] Message already exists, skipping duplicate:', newMessage.id);
                   }
-
-                  setSelectedConversation(prev => prev ? {
-                    ...prev,
-                    messages: [...prev.messages, newChatMessage],
-                    lastMessage: lastMessageText,
-                    lastMessageAt: newMessage.created_at
-                  } : null);
                 } else {
                   console.log('🔔 [ADMIN] Message does not belong to selected conversation');
                 }
@@ -852,21 +879,64 @@ const AdminPage = () => {
       const imageUrl = await uploadImageToSupabase(compressedFile, messageId);
       
       // Send image message
-      await AdminService.sendImageMessage(
+      const sentMessage = await AdminService.sendImageMessage(
         selectedConversation.id,
         imageUrl,
         responseText.trim() || '',
-        selectedConversation.profile.id,
+        selectedConversation.user.id,
         user.id
       );
 
-      // Clear input and refresh conversation
+      console.log('🔍 [ADMIN] Image message sent successfully:', {
+        id: sentMessage.id,
+        role: sentMessage.role,
+        content: sentMessage.content?.substring(0, 30),
+        isAdminResponse: sentMessage.isAdminResponse,
+        imageUrl: sentMessage.imageUrl
+      });
+
+      // Clear input
       setResponseText('');
-      const updatedConversation = await AdminService.getConversation(
-        selectedConversation.userId,
-        selectedConversation.profileId
-      );
-      setSelectedConversation(updatedConversation);
+      
+      // Manually add the message to the conversation with correct role
+      const manualMessage: ChatMessage = {
+        id: sentMessage.id,
+        conversationId: selectedConversation.id,
+        content: sentMessage.content,
+        role: 'assistant', // Always assistant for admin-sent messages
+        timestamp: sentMessage.timestamp,
+        isAdminResponse: true,
+        type: 'image',
+        imageUrl: sentMessage.imageUrl,
+        status: 'delivered'
+      };
+      
+      console.log('🔍 [ADMIN] Manually adding image message to conversation:', {
+        id: manualMessage.id,
+        role: manualMessage.role,
+        isAdminResponse: manualMessage.isAdminResponse,
+        hasImageUrl: !!manualMessage.imageUrl
+      });
+      
+      setSelectedConversation(prev => prev ? {
+        ...prev,
+        messages: [...prev.messages, manualMessage],
+        lastMessage: '📷 Photo',
+        lastMessageAt: sentMessage.timestamp
+      } : null);
+      
+      // Only refresh if real-time subscription fails
+      setTimeout(async () => {
+        const updatedConversation = await AdminService.getConversation(
+          selectedConversation.userId,
+          selectedConversation.profileId
+        );
+        console.log('🔍 [ADMIN] Refreshed conversation after image timeout:', {
+          messageCount: updatedConversation.messages.length,
+          lastMessageRole: updatedConversation.messages[updatedConversation.messages.length - 1]?.role
+        });
+        setSelectedConversation(updatedConversation);
+      }, 2000); // 2 second delay
       
     } catch (error) {
       console.error('Failed to upload image:', error);
@@ -948,6 +1018,58 @@ const AdminPage = () => {
   const handleEmojiClick = (emoji: string) => {
     setResponseText(prev => prev + emoji);
     setShowEmojiPicker(false);
+  };
+
+  const handleSendGift = async (gift: DatabaseGift) => {
+    if (!selectedConversation || !user) return;
+    
+    setShowGiftSelector(false);
+    
+    try {
+      console.log('🎁 [ADMIN] Sending gift:', {
+        giftName: gift.name,
+        giftCost: gift.price,
+        conversationId: selectedConversation.id,
+        profileId: selectedConversation.user.id,
+        adminId: user.id
+      });
+
+      const sentMessage = await AdminService.sendGiftMessage(
+        selectedConversation.id,
+        gift.name,
+        gift.price,
+        selectedConversation.user.id,
+        user.id
+      );
+
+      console.log('🎁 [ADMIN] Gift sent successfully:', {
+        id: sentMessage.id,
+        role: sentMessage.role,
+        content: sentMessage.content,
+        isAdminResponse: sentMessage.isAdminResponse,
+        giftData: sentMessage.giftData
+      });
+
+      // Let the real-time subscription handle adding the message
+      console.log('🎁 [ADMIN] Gift sent, waiting for real-time subscription to add it');
+      
+      // Only refresh if real-time subscription fails
+      setTimeout(async () => {
+        const updatedConversation = await AdminService.getConversation(
+          selectedConversation.userId,
+          selectedConversation.profileId
+        );
+        console.log('🎁 [ADMIN] Refreshed conversation after gift timeout:', {
+          messageCount: updatedConversation.messages.length,
+          lastMessageRole: updatedConversation.messages[updatedConversation.messages.length - 1]?.role
+        });
+        setSelectedConversation(updatedConversation);
+      }, 2000); // 2 second delay
+
+    } catch (error) {
+      console.error('🎁 [ADMIN] Failed to send gift:', error);
+      toast.error('Failed to send gift. Please try again.');
+    }
   };
 
   // Update ref when selectedConversation changes
@@ -2491,6 +2613,7 @@ const AdminPage = () => {
                           console.log('🔍 [DEBUG] Loaded conversation messages:', conversation.messages.map(msg => ({
                             id: msg.id,
                             type: msg.type,
+                            role: msg.role,
                             content: msg.content?.substring(0, 50),
                             imageUrl: msg.imageUrl,
                             hasImageUrl: !!msg.imageUrl
@@ -2701,35 +2824,61 @@ const AdminPage = () => {
                     </div>
                   ) : (
                     selectedConversation.messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={`flex ${message.role === 'user' ? 'justify-start' : 'justify-end'}`}
-                        >
-                        <div className={`max-w-[85%] md:max-w-[80%] ${message.role === 'user' ? 'order-2' : 'order-2'}`}>
+                      <div
+                        key={message.id}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        {/* Avatar for user (right) */}
+                        {message.role === 'user' && (
+                          <div className="order-2 ml-2">
+                            {selectedConversation.user.photo ? (
+                              <img
+                                src={selectedConversation.user.photo}
+                                alt={selectedConversation.user.firstName}
+                                className="w-6 h-6 rounded-full object-cover border border-slate-200"
+                              />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center border border-slate-200">
+                                <span className="text-xs font-semibold text-white">
+                                  {selectedConversation.user.firstName[0]}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {/* Message bubble */}
+                        <div className={`max-w-[85%] md:max-w-[80%] ${message.role === 'user' ? 'order-1' : 'order-2'}`}>
+                          {(() => {
+                            // Debug logging for each message render
+                            console.log('🔍 [UI DEBUG] Rendering message:', {
+                              id: message.id,
+                              type: message.type,
+                              role: message.role,
+                              content: message.content?.substring(0, 30),
+                              imageUrl: message.imageUrl,
+                              hasImageUrl: !!message.imageUrl,
+                              isGift: message.type === 'gift',
+                              isImage: message.type === 'image',
+                              imageCondition: message.type === 'image' && message.imageUrl,
+                              senderInfo: {
+                                profileId: selectedConversation.profileId?.substring(0, 8),
+                                userId: selectedConversation.userId?.substring(0, 8)
+                              }
+                            });
+                            return null;
+                          })()}
                           <div
                             className={`px-4 py-3 rounded-2xl shadow-sm ${
                               message.type === 'gift'
                                 ? message.role === 'user'
-                                  ? 'bg-gradient-to-r from-pink-50 to-rose-50 text-slate-800 rounded-bl-md border-2 border-rose-200 shadow-lg'
-                                  : 'bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white rounded-br-md border-2 border-yellow-300 shadow-lg'
-                                : message.role === 'user' 
-                                  ? 'bg-white text-slate-800 rounded-bl-md border border-slate-200'
-                                  : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md'
+                                  ? 'bg-gradient-to-r from-pink-50 to-rose-50 text-slate-800 rounded-br-md border-2 border-rose-200 shadow-lg'
+                                  : 'bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white rounded-bl-md border-2 border-yellow-300 shadow-lg'
+                                : message.role === 'user'
+                                  ? 'bg-white text-slate-800 rounded-br-md border border-slate-200'
+                                  : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-bl-md'
                             }`}
                           >
                             {(() => {
-                              // Debug logging for each message render
-                              console.log('🔍 [UI DEBUG] Rendering message:', {
-                                id: message.id,
-                                type: message.type,
-                                content: message.content?.substring(0, 30),
-                                imageUrl: message.imageUrl,
-                                hasImageUrl: !!message.imageUrl,
-                                isGift: message.type === 'gift',
-                                isImage: message.type === 'image',
-                                imageCondition: message.type === 'image' && message.imageUrl
-                              });
-                              
                               if (message.type === 'gift') {
                                 return (
                                   <div className="text-center space-y-1">
@@ -2739,15 +2888,15 @@ const AdminPage = () => {
                                     </p>
                                     <p className="text-xs opacity-90">
                                       {parseGiftContent(message.content).name}
-                            </p>
-                          </div>
+                                    </p>
+                                  </div>
                                 );
                               } else if (message.type === 'image' && message.imageUrl) {
                                 return (
                                   <div className="space-y-2">
-                                    <img 
-                                      src={message.imageUrl} 
-                                      alt="Shared image" 
+                                    <img
+                                      src={message.imageUrl}
+                                      alt="Shared image"
                                       className="rounded-lg max-w-48 h-auto cursor-pointer hover:opacity-90 transition-opacity"
                                       style={{ maxHeight: '200px', objectFit: 'cover' }}
                                       onClick={() => window.open(message.imageUrl, '_blank')}
@@ -2760,7 +2909,7 @@ const AdminPage = () => {
                                       }}
                                     />
                                     {message.content && <p className="text-sm">{message.content}</p>}
-                        </div>
+                                  </div>
                                 );
                               } else if (message.type === 'image' && !message.imageUrl) {
                                 // Special case: image message but no imageUrl
@@ -2770,41 +2919,37 @@ const AdminPage = () => {
                                       🔍 DEBUG: Image message missing imageUrl
                                       <br />Type: {message.type}
                                       <br />ImageUrl: {message.imageUrl || 'null/undefined'}
-                    </div>
+                                    </div>
                                     {message.content && <p className="text-sm">{message.content}</p>}
-                  </div>
+                                  </div>
                                 );
                               } else {
                                 return <p className="text-sm leading-relaxed break-words">{message.content}</p>;
                               }
                             })()}
                           </div>
-                          <p className={`text-xs text-slate-500 mt-2 px-1 ${message.role === 'user' ? 'text-left' : 'text-right'}`}>
+                          <p className={`text-xs text-slate-500 mt-2 px-1 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
                             {formatTime(new Date(message.timestamp))} • {message.role === 'user' ? selectedConversation.user.firstName : selectedConversation.profile.firstName}
-                            </p>
-                          </div>
-                        {message.role === 'user' && (
-                          <div className="order-1 mr-2">
-                            {selectedConversation.user.photo ? (
-                              <img 
-                                src={selectedConversation.user.photo} 
-                                alt={selectedConversation.user.firstName}
-                                className="w-6 h-6 rounded-full object-cover border border-slate-200"
-                              />
-                            ) : (
-                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center border border-slate-200">
-                                <span className="text-xs font-semibold text-white">
-                                  {selectedConversation.user.firstName[0]}
-                                  </span>
+                          </p>
+                          {(() => {
+                            // Debug logging for conversation data
+                            console.log('🔍 [UI DEBUG] Conversation data for message:', {
+                              messageId: message.id,
+                              messageRole: message.role,
+                              userFirstName: selectedConversation.user?.firstName,
+                              profileFirstName: selectedConversation.profile?.firstName,
+                              userData: selectedConversation.user,
+                              profileData: selectedConversation.profile
+                            });
+                            return null;
+                          })()}
                         </div>
-                            )}
-                    </div>
-                        )}
-                        {message.role !== 'user' && (
-                          <div className="order-3 ml-2">
+                        {/* Avatar for assistant/model (left) */}
+                        {message.role === 'assistant' && (
+                          <div className="order-1 mr-2">
                             {selectedConversation.profile.photo ? (
-                              <img 
-                                src={selectedConversation.profile.photo} 
+                              <img
+                                src={selectedConversation.profile.photo}
                                 alt={selectedConversation.profile.firstName}
                                 className="w-6 h-6 rounded-full object-cover border border-blue-200"
                               />
@@ -2815,9 +2960,9 @@ const AdminPage = () => {
                                 </span>
                               </div>
                             )}
-                            </div>
-                        )}
                           </div>
+                        )}
+                      </div>
                     ))
                   )}
                   <div ref={messagesEndRef} />
@@ -2882,18 +3027,51 @@ const AdminPage = () => {
                               e.preventDefault();
                               if (responseText.trim() && user && !sendingResponse) {
                                 setSendingResponse(true);
+                                console.log('🔍 [ADMIN] Calling sendProfileResponse with:', {
+                                  conversationId: selectedConversation.id,
+                                  content: responseText.substring(0, 30),
+                                  profileId: selectedConversation.user.id,
+                                  adminId: user.id,
+                                  profileName: selectedConversation.user.firstName,
+                                  userName: selectedConversation.profile.firstName,
+                                  userId: selectedConversation.userId,
+                                  conversationProfileId: selectedConversation.profileId,
+                                  fullConversation: selectedConversation
+                                });
+                                
                                 AdminService.sendProfileResponse(
                                   selectedConversation.id,
                                   responseText,
-                                  selectedConversation.profile.id,
+                                  selectedConversation.user.id,
                                   user.id
-                                ).then(async () => {
+                                ).then(async (sentMessage) => {
+                                  console.log('🔍 [ADMIN] Message sent successfully:', {
+                                    id: sentMessage.id,
+                                    role: sentMessage.role,
+                                    content: sentMessage.content?.substring(0, 30),
+                                    isAdminResponse: sentMessage.isAdminResponse
+                                  });
+                                  
                                   setResponseText('');
-                                  const updatedConversation = await AdminService.getConversation(
+                                  
+                                  // Let the real-time subscription handle adding the message
+                                  console.log('🔍 [ADMIN] Message sent, waiting for real-time subscription to add it');
+                                  
+                                  // Only refresh if real-time subscription fails
+                                  setTimeout(async () => {
+                                                                      const updatedConversation = await AdminService.getConversation(
                                     selectedConversation.userId,
                                     selectedConversation.profileId
                                   );
+                                  console.log('🔍 [ADMIN] Refreshed conversation after timeout:', {
+                                    messageCount: updatedConversation.messages.length,
+                                    lastMessageRole: updatedConversation.messages[updatedConversation.messages.length - 1]?.role,
+                                    userFirstName: updatedConversation.user?.firstName,
+                                    profileFirstName: updatedConversation.profile?.firstName,
+                                    conversationData: updatedConversation
+                                  });
                                   setSelectedConversation(updatedConversation);
+                                  }, 2000); // 2 second delay
                                 }).catch((error) => {
                                   console.error('Failed to send response:', error);
                                 }).finally(() => {
@@ -2913,6 +3091,19 @@ const AdminPage = () => {
                           <Smile className="h-5 w-5 text-slate-400" />
                       </button>
                     </div>
+
+                      {/* Gift button */}
+                      {!responseText.trim() && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-12 w-12 p-0 touch-manipulation transition-colors hover:bg-slate-100 active:bg-slate-200 text-slate-600"
+                          onClick={() => setShowGiftSelector(true)}
+                          title="Send gift"
+                        >
+                          <Gift className="h-5 w-5" />
+                        </Button>
+                      )}
 
                       {/* Voice record button */}
                       {!responseText.trim() && (
@@ -2934,18 +3125,37 @@ const AdminPage = () => {
                             if (responseText.trim() && user && !sendingResponse) {
                               setSendingResponse(true);
                               try {
-                                await AdminService.sendProfileResponse(
+                                const sentMessage = await AdminService.sendProfileResponse(
                                   selectedConversation.id,
                                   responseText,
-                                  selectedConversation.profile.id,
+                                  selectedConversation.user.id,
                                   user.id
                                 );
+                                
+                                console.log('🔍 [ADMIN] Message sent successfully (button):', {
+                                  id: sentMessage.id,
+                                  role: sentMessage.role,
+                                  content: sentMessage.content?.substring(0, 30),
+                                  isAdminResponse: sentMessage.isAdminResponse
+                                });
+                                
                                 setResponseText('');
-                                const updatedConversation = await AdminService.getConversation(
-                                  selectedConversation.userId,
-                                  selectedConversation.profileId
-                                );
-                                setSelectedConversation(updatedConversation);
+                                
+                                // Let the real-time subscription handle adding the message
+                                console.log('🔍 [ADMIN] Message sent (button), waiting for real-time subscription to add it');
+                                
+                                // Only refresh if real-time subscription fails
+                                setTimeout(async () => {
+                                  const updatedConversation = await AdminService.getConversation(
+                                    selectedConversation.userId,
+                                    selectedConversation.profileId
+                                  );
+                                  console.log('🔍 [ADMIN] Refreshed conversation after timeout (button):', {
+                                    messageCount: updatedConversation.messages.length,
+                                    lastMessageRole: updatedConversation.messages[updatedConversation.messages.length - 1]?.role
+                                  });
+                                  setSelectedConversation(updatedConversation);
+                                }, 2000); // 2 second delay
                               } catch (error) {
                                 console.error('Failed to send response:', error);
                               } finally {
@@ -4585,6 +4795,74 @@ const AdminPage = () => {
                     )}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Gift Selector Modal */}
+        {showGiftSelector && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Send Gift</h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Send a gift as {selectedConversation?.user.firstName} to {selectedConversation?.profile.firstName}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowGiftSelector(false)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {gifts.filter(gift => gift.is_active).map((gift) => (
+                    <div 
+                      key={gift.id} 
+                      className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => handleSendGift(gift)}
+                    >
+                      {/* Gift Image */}
+                      <div className="aspect-w-16 aspect-h-12 bg-gray-100">
+                        <img
+                          src={gift.image_url}
+                          alt={gift.name}
+                          className="w-full h-48 object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400';
+                          }}
+                        />
+                      </div>
+                      
+                      {/* Gift Info */}
+                      <div className="p-4">
+                        <h4 className="font-semibold text-gray-900 mb-2">{gift.name}</h4>
+                        {gift.description && (
+                          <p className="text-sm text-gray-600 mb-3 line-clamp-2">{gift.description}</p>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-lg font-bold text-rose-600">{gift.price} coins</span>
+                          <span className="text-xs text-gray-500 capitalize">{gift.category}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {gifts.filter(gift => gift.is_active).length === 0 && (
+                  <div className="text-center py-12">
+                    <Gift className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No active gifts available</h3>
+                    <p className="text-gray-600">Please add some gifts in the gifts management section.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

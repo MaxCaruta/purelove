@@ -22,6 +22,11 @@ CREATE TABLE IF NOT EXISTS messages (
 -- Enable Row Level Security
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can read messages they sent or received" ON messages;
+DROP POLICY IF EXISTS "Users can insert messages they send" ON messages;
+DROP POLICY IF EXISTS "Users can update messages they received" ON messages;
+
 -- Security Policies
 CREATE POLICY "Users can read messages they sent or received"
   ON messages FOR SELECT TO authenticated
@@ -36,10 +41,10 @@ CREATE POLICY "Users can update messages they received"
   USING (auth.uid() = receiver_id);
 
 -- Indexes for performance
-CREATE INDEX idx_messages_sender_id ON messages(sender_id);
-CREATE INDEX idx_messages_receiver_id ON messages(receiver_id);
-CREATE INDEX idx_messages_created_at ON messages(created_at);
-CREATE INDEX idx_messages_conversation ON messages(sender_id, receiver_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_receiver_id ON messages(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(sender_id, receiver_id, created_at);
 
 -- Comments for documentation
 COMMENT ON TABLE messages IS 'Chat messages between users';

@@ -317,11 +317,11 @@ export class AdminService {
         return [];
       }
       
-      // First, get all users with role 'user' (not admin profiles or models)
+      // Get all users (not admin profiles) - be less restrictive
       const { data: realUsers, error: usersError } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, photos, role, created_at')
-        .eq('role', 'user')
+        .neq('role', 'admin')
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -497,36 +497,41 @@ export class AdminService {
           let regularUserId: string | null = null;
           let modelProfileId: string | null = null;
           
-          // Check all possible combinations
+          // Check all possible combinations - be less restrictive
           if (user1 && !user2) {
-            // user1 is regular user, user2 should be a model
+            // user1 is a user, user2 should be a model or another user
             const otherProfile = modelProfilesMap.get(conv.user2_id);
-            if (otherProfile && otherProfile.role === 'model') {
-            regularUserId = user1.id;
+            if (otherProfile) {
+              regularUserId = user1.id;
               modelProfileId = conv.user2_id;
-              console.log(`🔍 [ADMIN] Case 1: user1 is regular, user2 is confirmed model`);
+              console.log(`🔍 [ADMIN] Case 1: user1 is user, user2 is ${otherProfile.role}`);
             } else {
-              console.log(`🔍 [ADMIN] Case 1 SKIP: user2 is not a confirmed model profile`);
-              continue;
+              // user2 might be another user (not a model)
+              regularUserId = user1.id;
+              modelProfileId = conv.user2_id;
+              console.log(`🔍 [ADMIN] Case 1: user1 is user, user2 is another user (not model)`);
             }
           } else if (user2 && !user1) {
-            // user2 is regular user, user1 should be a model
+            // user2 is a user, user1 should be a model or another user
             const otherProfile = modelProfilesMap.get(conv.user1_id);
-            if (otherProfile && otherProfile.role === 'model') {
-            regularUserId = user2.id;
+            if (otherProfile) {
+              regularUserId = user2.id;
               modelProfileId = conv.user1_id;
-              console.log(`🔍 [ADMIN] Case 2: user2 is regular, user1 is confirmed model`);
+              console.log(`🔍 [ADMIN] Case 2: user2 is user, user1 is ${otherProfile.role}`);
             } else {
-              console.log(`🔍 [ADMIN] Case 2 SKIP: user1 is not a confirmed model profile`);
-              continue;
+              // user1 might be another user (not a model)
+              regularUserId = user2.id;
+              modelProfileId = conv.user1_id;
+              console.log(`🔍 [ADMIN] Case 2: user2 is user, user1 is another user (not model)`);
             }
           } else if (user1 && user2) {
-            // Both are regular users - skip user-to-user conversations
-            console.log(`🔍 [ADMIN] Case 3: Both are regular users - skipping user-to-user conversation`);
-            continue;
+            // Both are users - show the conversation with user1 as the primary user
+            regularUserId = user1.id;
+            modelProfileId = user2.id;
+            console.log(`🔍 [ADMIN] Case 3: Both are users - showing conversation between users`);
           } else {
-            // Neither is a regular user - skip conversations between unknown entities
-            console.log(`🔍 [ADMIN] Case 4: Neither is a regular user - skipping unknown conversation`);
+            // Neither is a known user - skip conversations between unknown entities
+            console.log(`🔍 [ADMIN] Case 4: Neither is a known user - skipping unknown conversation`);
             continue;
           }
 
@@ -541,22 +546,44 @@ export class AdminService {
             continue;
           }
 
-          // Get model profile details - we've already confirmed it's a model
+          // Get profile details - could be a model or another user
           const modelProfile = modelProfilesMap.get(modelProfileId);
-          if (!modelProfile) {
-            console.log(`🔍 [ADMIN] Model profile not found in map - skipping`);
-            continue;
+          let profileName: string;
+          let profilePhoto: string | undefined;
+          
+          if (modelProfile) {
+            // It's a model profile
+            profileName = `${modelProfile.first_name} ${modelProfile.last_name}`;
+            profilePhoto = modelProfile.photos?.[0];
+            
+            // Ensure Elena has the same photo as in ChatWindow
+            if (modelProfile.first_name === 'Elena' && (!profilePhoto || !profilePhoto.includes('photo-1544005313-94ddf0286df2'))) {
+              profilePhoto = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=776&q=80';
+            }
+            
+            console.log(`🔍 [ADMIN] Model profile: ${profileName}`);
+          } else {
+            // It's another user profile - fetch it
+            try {
+              const { data: otherUserProfile } = await supabaseAdmin
+                .from('profiles')
+                .select('first_name, last_name, photos')
+                .eq('id', modelProfileId)
+                .single();
+              
+              if (otherUserProfile) {
+                profileName = `${otherUserProfile.first_name} ${otherUserProfile.last_name}`;
+                profilePhoto = otherUserProfile.photos?.[0];
+                console.log(`🔍 [ADMIN] Other user profile: ${profileName}`);
+              } else {
+                profileName = 'Unknown User';
+                console.log(`🔍 [ADMIN] Unknown profile for ID: ${modelProfileId}`);
+              }
+            } catch (error) {
+              profileName = 'Unknown User';
+              console.log(`🔍 [ADMIN] Error fetching profile for ID: ${modelProfileId}:`, error);
+            }
           }
-          
-          const profileName = `${modelProfile.first_name} ${modelProfile.last_name}`;
-          let profilePhoto = modelProfile.photos?.[0];
-          
-          // Ensure Elena has the same photo as in ChatWindow
-          if (modelProfile.first_name === 'Elena' && (!profilePhoto || !profilePhoto.includes('photo-1544005313-94ddf0286df2'))) {
-            profilePhoto = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=776&q=80';
-          }
-          
-          console.log(`🔍 [ADMIN] Confirmed model profile: ${profileName}`);
 
           console.log(`🔍 [ADMIN] Adding conversation:`, {
             regularUser: userChat.user.firstName + ' ' + userChat.user.lastName,
@@ -685,8 +712,14 @@ export class AdminService {
         throw new Error('Failed to fetch user/profile data');
       }
 
+      // Keep the original logic - userId is the real user, profileId is the model
       const realUser = userResult.data;
       const modelProfile = profileResult.data;
+
+      console.log('🔍 [ADMIN] User assignment:', {
+        realUser: { id: realUser.id, firstName: realUser.first_name, role: realUser.role },
+        modelProfile: { id: modelProfile.id, firstName: modelProfile.first_name, role: modelProfile.role }
+      });
 
       // Get messages for this conversation
       let messagesData = [];
@@ -705,18 +738,30 @@ export class AdminService {
       }
 
       // Convert messages to ChatMessage format
-      const messages: ChatMessage[] = messagesData.map((msg: any) => ({
-        id: msg.id,
-        conversationId: conversationId,
-        content: msg.content,
-        role: msg.sender_id === realUser.id ? 'user' : 'assistant',
-        timestamp: msg.created_at,
-        isAdminResponse: false,
-        type: msg.type || 'text',
-        imageUrl: msg.image_url,
-        voiceUrl: msg.voice_url,
-        duration: msg.duration
-      }));
+      const messages: ChatMessage[] = messagesData.map((msg: any) => {
+        const role = msg.sender_id === modelProfile.id ? 'assistant' : 'user';
+        console.log('🔍 [ADMIN] Converting message to ChatMessage:', {
+          messageId: msg.id,
+          sender_id: msg.sender_id,
+          modelProfileId: modelProfile.id,
+          realUserId: realUser.id,
+          role: role,
+          content: msg.content?.substring(0, 30)
+        });
+        
+        return {
+          id: msg.id,
+          conversationId: conversationId,
+          content: msg.content,
+          role: role,
+          timestamp: msg.created_at,
+          isAdminResponse: false,
+          type: msg.type || 'text',
+          imageUrl: msg.image_url,
+          voiceUrl: msg.voice_url,
+          duration: msg.duration
+        };
+      });
 
       // Determine conversation status
       let status: 'active' | 'archived' | 'flagged' = 'active';
@@ -953,7 +998,13 @@ export class AdminService {
   // Send response as a profile (admin responding as the AI profile)
   static async sendProfileResponse(conversationId: string, content: string, profileId: string, adminId: string): Promise<ChatMessage> {
     try {
-      console.log('💬 [ADMIN] Sending profile response:', { conversationId, profileId, adminId });
+      console.log('💬 [ADMIN] Sending profile response:', { 
+        conversationId, 
+        profileId, 
+        adminId,
+        profileIdType: typeof profileId,
+        profileIdLength: profileId?.length
+      });
       
       // Get conversation details
       const { data: conversation, error: convError } = await supabaseAdmin
@@ -969,6 +1020,12 @@ export class AdminService {
 
       // Determine receiver (the real user in the conversation)
       const receiverId = conversation.user1_id === profileId ? conversation.user2_id : conversation.user1_id;
+      
+      console.log('💬 [ADMIN] Creating message with:', {
+        sender_id: profileId,
+        receiver_id: receiverId,
+        content: content.substring(0, 30)
+      });
       
       // Create the message
       const { data: message, error: msgError } = await supabaseAdmin
@@ -1073,13 +1130,6 @@ export class AdminService {
         })
         .eq('id', conversationId);
 
-      // Log admin action
-      await AdminService.logAdminAction(adminId, 'send_message', {
-        conversation_id: conversationId,
-        profile_id: profileId,
-        message_type: 'image'
-      });
-
       return {
         id: message.id,
         conversationId: conversationId,
@@ -1092,6 +1142,98 @@ export class AdminService {
       };
     } catch (error) {
       console.error('📷 [ADMIN] Error sending image message:', error);
+      throw error;
+    }
+  }
+
+  // Send gift message as profile (admin sending gift as model)
+  static async sendGiftMessage(conversationId: string, giftName: string, giftCost: number, profileId: string, adminId: string): Promise<ChatMessage> {
+    try {
+      console.log('🎁 [ADMIN] Sending gift message:', { conversationId, profileId, adminId, giftName, giftCost });
+      
+      // Get conversation details
+      const { data: conversation, error: convError } = await supabaseAdmin
+        .from('conversations')
+        .select('user1_id, user2_id')
+        .eq('id', conversationId)
+        .single();
+
+      if (convError || !conversation) {
+        console.error('🎁 [ADMIN] Error getting conversation:', convError);
+        throw new Error('Conversation not found');
+      }
+
+      // Determine receiver (the real user in the conversation)
+      const receiverId = conversation.user1_id === profileId ? conversation.user2_id : conversation.user1_id;
+      
+      console.log('🎁 [ADMIN] Gift message details:', {
+        sender_id: profileId,
+        receiver_id: receiverId,
+        content: giftName,
+        type: 'gift',
+        gift_name: giftName,
+        gift_cost: giftCost,
+        conversation_user1: conversation.user1_id,
+        conversation_user2: conversation.user2_id
+      });
+      
+      // Create the gift message
+      const { data: message, error: msgError } = await supabaseAdmin
+        .from('messages')
+        .insert({
+          sender_id: profileId,
+          receiver_id: receiverId,
+          content: giftName,
+          type: 'gift',
+          gift_name: giftName,
+          gift_cost: giftCost,
+          created_at: new Date().toISOString(),
+          read: false
+        })
+        .select()
+        .single();
+
+      if (msgError) {
+        console.error('🎁 [ADMIN] Error creating gift message:', msgError);
+        console.error('🎁 [ADMIN] Error details:', JSON.stringify(msgError, null, 2));
+        throw new Error('Failed to create gift message');
+      }
+
+      console.log('🎁 [ADMIN] Gift message created successfully:', {
+        messageId: message.id,
+        sender_id: message.sender_id,
+        receiver_id: message.receiver_id,
+        content: message.content,
+        type: message.type
+      });
+
+      // Update conversation's last_message_at and last_message_id
+      await supabaseAdmin
+        .from('conversations')
+        .update({ 
+          last_message_at: new Date().toISOString(),
+          last_message_id: message.id,
+          user1_unread_count: conversation.user1_id === receiverId ? 1 : 0,
+          user2_unread_count: conversation.user2_id === receiverId ? 1 : 0
+        })
+        .eq('id', conversationId);
+
+      return {
+        id: message.id,
+        conversationId: conversationId,
+        content: giftName,
+        role: 'assistant',
+        timestamp: message.created_at,
+        isAdminResponse: true,
+        type: 'gift',
+        giftData: {
+          name: giftName,
+          cost: giftCost,
+          giftType: 'real'
+        }
+      };
+    } catch (error) {
+      console.error('🎁 [ADMIN] Error sending gift message:', error);
       throw error;
     }
   }

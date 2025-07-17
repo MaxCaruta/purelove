@@ -17,12 +17,14 @@ export function GiftSelector({ isOpen, onClose, onSelectGift, userCoins, recipie
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [gifts, setGifts] = useState<RealGift[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Load gifts from database
   useEffect(() => {
     const loadGifts = async () => {
       if (!isOpen) return;
       
+      setIsLoading(true);
       try {
         const [allGifts, allCategories] = await Promise.all([
           getGiftsByCategory(selectedCategory === 'all' ? undefined : selectedCategory),
@@ -32,6 +34,8 @@ export function GiftSelector({ isOpen, onClose, onSelectGift, userCoins, recipie
         setCategories(['all', ...allCategories]);
       } catch (error) {
         console.error('Error loading gifts:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -142,7 +146,13 @@ export function GiftSelector({ isOpen, onClose, onSelectGift, userCoins, recipie
 
           {/* Gift Grid */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-6">
-            {gifts.length === 0 ? (
+            {isLoading ? (
+              <div className="text-center py-8 sm:py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500 mx-auto mb-4"></div>
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Loading gifts...</h3>
+                <p className="text-gray-600 text-sm sm:text-base">Please wait while we fetch the perfect gifts for you</p>
+              </div>
+            ) : gifts.length === 0 ? (
               <div className="text-center py-8 sm:py-12">
                 <div className="text-4xl sm:text-6xl mb-3 sm:mb-4">😔</div>
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">No gifts available</h3>
@@ -166,7 +176,7 @@ export function GiftSelector({ isOpen, onClose, onSelectGift, userCoins, recipie
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className={`bg-white rounded-xl border-2 overflow-hidden transition-all hover:shadow-lg ${
+                      className={`bg-white rounded-xl border-2 overflow-hidden transition-all hover:shadow-lg flex flex-col ${
                         canAfford ? 'border-gray-200 hover:border-emerald-300' : 'border-gray-100 opacity-60'
                       }`}
                     >
@@ -179,8 +189,8 @@ export function GiftSelector({ isOpen, onClose, onSelectGift, userCoins, recipie
                         />
                       </div>
 
-                      {/* Real gift content */}
-                      <div className="p-3 sm:p-4">
+                      {/* Real gift content - flex-grow to push bottom elements down */}
+                      <div className="p-3 sm:p-4 flex flex-col flex-grow">
                         <h3 className="font-semibold text-gray-900 text-sm sm:text-base mb-2 line-clamp-2">
                           {gift.name}
                         </h3>
@@ -206,40 +216,46 @@ export function GiftSelector({ isOpen, onClose, onSelectGift, userCoins, recipie
                           )}
                         </div>
 
-                        {/* Quantity Selector */}
-                        <div className="flex items-center justify-center space-x-3 mb-3">
+                        {/* Spacer to push bottom elements to bottom */}
+                        <div className="flex-grow"></div>
+
+                        {/* Fixed bottom section */}
+                        <div className="mt-auto">
+                          {/* Quantity Selector */}
+                          <div className="flex items-center justify-center space-x-3 mb-3">
+                            <button
+                              onClick={() => setQuantity(gift.id, Math.max(1, quantity - 1))}
+                              disabled={quantity <= 1}
+                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </button>
+                            <span className="text-lg font-semibold min-w-[2rem] text-center">{quantity}</span>
+                            <button
+                              onClick={() => setQuantity(gift.id, Math.max(1, quantity + 1))}
+                              disabled={!canAfford}
+                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </button>
+                          </div>
+
+                          {/* Send Gift Button */}
                           <button
-                            onClick={() => setQuantity(gift.id, Math.max(1, quantity - 1))}
-                            disabled={quantity <= 1}
-                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                          >
-                            <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
-                          </button>
-                          <span className="text-lg font-semibold min-w-[2rem] text-center">{quantity}</span>
-                          <button
-                            onClick={() => setQuantity(gift.id, Math.max(1, quantity + 1))}
+                            onClick={() => handleGiftSelect(gift)}
                             disabled={!canAfford}
-                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                            className={`w-full py-2.5 sm:py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center space-x-2 ${
+                              canAfford
+                                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 shadow-md hover:shadow-lg'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            }`}
                           >
-                            <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <ShoppingBag className="w-4 h-4" />
+                            <span>
+                              {canAfford ? 'SEND GIFT' : `Need ${totalCost - userCoins} more coins`}
+                            </span>
                           </button>
                         </div>
-
-                        {/* Send Gift Button */}
-                        <button
-                          onClick={() => handleGiftSelect(gift)}
-                          disabled={!canAfford}
-                          className={`w-full py-2.5 sm:py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center space-x-2 ${
-                            canAfford
-                              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 shadow-md hover:shadow-lg'
-                              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          }`}
-                        >
-                          <ShoppingBag className="w-4 h-4" />
-                          <span>
-                            {canAfford ? 'SEND GIFT' : `Need ${totalCost - userCoins} more coins`}
-                          </span>
-                        </button>
                       </div>
                     </motion.div>
                   );
@@ -254,7 +270,7 @@ export function GiftSelector({ isOpen, onClose, onSelectGift, userCoins, recipie
               <div className="flex items-center space-x-6">
                 <div className="flex items-center space-x-2">
                   <Package className="w-4 h-4" />
-                  <span>Virtual purchase with coins</span>
+                  <span>Purchase with coins</span>
                 </div>
               </div>
               <div className="text-right">

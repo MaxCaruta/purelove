@@ -563,3 +563,78 @@ export function addDemoReceivedLikes() {
     demoLikesAdded = false;
   }
 }
+
+// Gift transaction function
+export const sendGift = async (
+  senderId: string,
+  receiverId: string,
+  giftId: string,
+  quantity: number = 1
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // First, get the gift details to calculate cost
+    const { data: gift, error: giftError } = await supabase
+      .from('gifts')
+      .select('*')
+      .eq('id', giftId)
+      .single();
+
+    if (giftError || !gift) {
+      return { success: false, error: 'Gift not found' };
+    }
+
+    const totalCost = gift.price * quantity;
+
+    // Check if sender has enough coins
+    const { data: senderProfile, error: senderError } = await supabase
+      .from('profiles')
+      .select('coins')
+      .eq('id', senderId)
+      .single();
+
+    if (senderError || !senderProfile) {
+      return { success: false, error: 'Sender profile not found' };
+    }
+
+    if (senderProfile.coins < totalCost) {
+      return { success: false, error: 'Insufficient coins' };
+    }
+
+    // Manual transaction handling for better reliability
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ coins: senderProfile.coins - totalCost })
+      .eq('id', senderId);
+
+    if (updateError) {
+      console.error('Error updating sender coins:', updateError);
+      return { success: false, error: 'Failed to deduct coins' };
+    }
+
+    // Record the gift transaction
+    const { error: transactionError } = await supabase
+      .from('gift_transactions')
+      .insert({
+        sender_id: senderId,
+        receiver_id: receiverId,
+        gift_id: giftId,
+        coins_spent: totalCost,
+        created_at: new Date().toISOString()
+      });
+
+    if (transactionError) {
+      console.error('Error recording gift transaction:', transactionError);
+      // Try to refund the coins if transaction recording fails
+      await supabase
+        .from('profiles')
+        .update({ coins: senderProfile.coins })
+        .eq('id', senderId);
+      return { success: false, error: 'Failed to record gift transaction' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error sending gift:', error);
+    return { success: false, error: 'Unexpected error occurred' };
+  }
+};
